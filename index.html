@@ -5,32 +5,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>2026麻將</title>
     
-    <!-- iOS PWA 設定 -->
+    <!-- iOS PWA 核心設定 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="2026麻將">
     
-    <!-- 桌面圖示：黑底橘色發字 (使用 Base64 確保 Safari 直接抓取) -->
-    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIwIiBmaWxsPSJibGFjayIvPjx0ZXh0IHg9IjUwIiB5PSI3MCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjYwIiBmaWxsPSIjZjk3MzE2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iOTAwIj7mmbw8L3RleHQ+PC9zdmc+">
+    <!-- 引用圖示檔案 -->
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" href="icon.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <style>
-        body { background-color: black; color: white; -webkit-tap-highlight-color: transparent; font-family: -apple-system, system-ui; margin: 0; }
+        body { 
+            background-color: black; 
+            color: white; 
+            -webkit-tap-highlight-color: transparent; 
+            font-family: -apple-system, system-ui, sans-serif; 
+            margin: 0;
+            user-select: none;
+        }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
         .safe-area-inset { padding-top: env(safe-area-inset-top); }
-        input, textarea { background: #09090b; border: 1px solid #27272a; border-radius: 1rem; padding: 1rem; color: white; outline: none; width: 100%; }
-        input:focus, textarea:focus { border-color: #f97316; }
-        * { user-select: none; -webkit-touch-callout: none; }
-        input, textarea { user-select: auto; -webkit-touch-callout: default; }
+        
+        /* 輸入框樣式微調 */
+        input, textarea { 
+            background: #121214; 
+            border: 1px solid #27272a; 
+            border-radius: 1.25rem; 
+            padding: 1rem; 
+            color: white; 
+            outline: none; 
+            width: 100%;
+            font-size: 1rem;
+            user-select: auto;
+        }
+        input:focus { border-color: #f97316; }
+        
+        /* 數據看板字體微縮 */
+        .stat-label { font-size: 0.7rem; font-weight: 800; color: #52525b; text-transform: uppercase; letter-spacing: 0.05em; }
+        .stat-value { font-size: 1.5rem; font-weight: 900; line-height: 1.1; margin-top: 0.15rem; }
     </style>
 </head>
 <body>
     <div id="app" class="safe-area-inset">
-        <!-- 初始載入動畫 -->
-        <div class="h-screen flex flex-col items-center justify-center">
-            <div class="text-orange-500 font-black animate-pulse tracking-widest text-2xl uppercase">2026 Mahjong</div>
+        <div class="h-screen flex items-center justify-center">
+            <div class="text-orange-500 font-bold animate-pulse tracking-widest text-lg uppercase">Loading...</div>
         </div>
     </div>
 
@@ -39,7 +60,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // --- 請確認這裡的配置是你自己的 Firebase 資訊 ---
         const firebaseConfig = {
             apiKey: "AIzaSyAJq5ty6AuCiooCEEAaK5rgmAsr4m6CuxY",
             authDomain: "mahjong-2026-8fc29.firebaseapp.com",
@@ -83,31 +103,31 @@
             const monthName = new Intl.DateTimeFormat('zh-TW', { month: 'long' }).format(currentDate);
 
             appEl.innerHTML = `
-                <div class="max-w-md mx-auto p-4 pt-8">
-                    <header class="mb-8 border-b border-zinc-900 pb-8">
-                        <div class="flex justify-between items-end mb-6">
-                            <div>
-                                <h1 class="text-4xl font-black text-white leading-none">2026 <span class="text-orange-500">麻將</span></h1>
-                                <p class="text-xs text-orange-500 font-black tracking-[0.3em] mt-2 uppercase">自摸就自摸還槓上</p>
-                            </div>
+                <div class="max-w-md mx-auto p-4 pt-6">
+                    <header class="mb-8 border-b border-zinc-900 pb-6">
+                        <div class="mb-6">
+                            <h1 class="text-2xl font-black text-white leading-none">2026 <span class="text-orange-500">麻將</span></h1>
+                            <p class="text-[11px] text-orange-500/80 font-bold tracking-[0.3em] mt-2 uppercase italic">自摸就自摸還槓上</p>
                         </div>
-                        <div class="grid grid-cols-4 gap-2">
-                            ${statBox('贏', stats.w, 'text-green-500')}
-                            ${statBox('輸', stats.l, 'text-red-500')}
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            ${statBox('總贏錢', stats.w, 'text-green-500')}
+                            ${statBox('總輸錢', stats.l, 'text-red-500')}
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
                             ${statBox('台費', stats.f, 'text-zinc-500')}
                             ${statBox('淨利', stats.n, 'text-orange-500', true)}
                         </div>
                     </header>
 
-                    <div class="bg-zinc-950 rounded-[2rem] border border-zinc-800 overflow-hidden shadow-2xl">
-                        <div class="flex items-center justify-between px-6 py-5 border-b border-zinc-900 bg-zinc-900/20">
-                            <span class="font-black text-lg text-zinc-100">${year} / ${monthName}</span>
+                    <div class="bg-zinc-950 rounded-[2rem] border border-zinc-900 overflow-hidden shadow-2xl">
+                        <div class="flex items-center justify-between px-6 py-4 bg-zinc-900/20 border-b border-zinc-900">
+                            <span class="font-black text-base text-zinc-100 tracking-wider">${year} / ${monthName}</span>
                             <div class="flex gap-4">
-                                <button onclick="changeMonth(-1)" class="p-2"><i data-lucide="chevron-left" class="text-zinc-500"></i></button>
-                                <button onclick="changeMonth(1)" class="p-2"><i data-lucide="chevron-right" class="text-zinc-500"></i></button>
+                                <button onclick="changeMonth(-1)" class="p-1"><i data-lucide="chevron-left" class="text-zinc-500 w-5 h-5"></i></button>
+                                <button onclick="changeMonth(1)" class="p-1"><i data-lucide="chevron-right" class="text-zinc-500 w-5 h-5"></i></button>
                             </div>
                         </div>
-                        <div class="calendar-grid text-[10px] font-black text-zinc-800 py-3 border-b border-zinc-900 text-center uppercase">
+                        <div class="calendar-grid text-[9px] font-bold text-zinc-800 py-2 border-b border-zinc-900 text-center">
                             <div>SUN</div><div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div>
                         </div>
                         <div class="calendar-grid">${generateCalendarDays(year, month)}</div>
@@ -120,9 +140,9 @@
 
         function statBox(label, val, color, highlight = false) {
             return `
-                <div class="text-center p-3 rounded-2xl bg-zinc-900 border ${highlight ? 'border-orange-500 shadow-lg' : 'border-zinc-800'}">
-                    <p class="text-[9px] text-zinc-600 font-black uppercase mb-1">${label}</p>
-                    <p class="text-lg font-black ${color} tracking-tighter">${val.toLocaleString()}</p>
+                <div class="p-4 rounded-2xl bg-zinc-900 border ${highlight ? 'border-orange-500/40 shadow-xl' : 'border-zinc-800'}">
+                    <p class="stat-label">${label}</p>
+                    <p class="stat-value ${color} truncate tracking-tighter">${val.toLocaleString()}</p>
                 </div>
             `;
         }
@@ -131,18 +151,18 @@
             const days = [];
             const total = new Date(y, m + 1, 0).getDate();
             const offset = new Date(y, m, 1).getDay();
-            for (let i = 0; i < offset; i++) days.push(`<div class="h-16 border border-zinc-900/50 bg-black"></div>`);
+            for (let i = 0; i < offset; i++) days.push(`<div class="h-14 border border-zinc-900/30 bg-black"></div>`);
             for (let d = 1; d <= total; d++) {
                 const dStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                 const r = records[dStr] || {};
                 const isToday = new Date().toLocaleDateString('en-CA') === dStr;
                 days.push(`
-                    <div onclick="openModal('${dStr}')" class="h-16 border border-zinc-900/50 p-2 active:bg-zinc-800 transition-all relative">
+                    <div onclick="openModal('${dStr}')" class="h-14 border border-zinc-900/30 p-1.5 active:bg-zinc-800 transition-all relative">
                         <div class="flex justify-between">
-                            <span class="text-[11px] font-bold ${isToday ? 'text-orange-500' : 'text-zinc-700'}">${d}</span>
-                            ${r.memo ? '<div class="w-1.5 h-1.5 bg-orange-500 rounded-full shadow-[0_0_5px_#f97316]"></div>' : ''}
+                            <span class="text-[10px] font-bold ${isToday ? 'text-orange-500' : 'text-zinc-700'}">${d}</span>
+                            ${r.memo ? '<div class="w-1 h-1 bg-orange-500 rounded-full shadow-[0_0_5px_#f97316]"></div>' : ''}
                         </div>
-                        ${r.amount ? `<div class="text-[9px] font-black mt-1 truncate ${r.amount > 0 ? 'text-green-500' : 'text-red-500'}">${r.amount > 0 ? '+' : ''}${r.amount}</div>` : ''}
+                        ${r.amount ? `<div class="text-[8px] font-bold mt-1 truncate ${r.amount > 0 ? 'text-green-500' : 'text-red-500'}">${r.amount > 0 ? '+' : ''}${r.amount}</div>` : ''}
                     </div>
                 `);
             }
@@ -165,23 +185,20 @@
         window.openModal = (dStr) => { selectedDate = dStr; render(); };
         window.closeModal = () => { selectedDate = null; render(); };
         window.saveData = async () => {
-            const amount = document.getElementById('m_amount').value;
-            const tableFee = document.getElementById('m_fee').value;
-            const memo = document.getElementById('m_memo').value;
             const btn = document.getElementById('save-btn');
-            btn.innerText = "同步中...";
+            btn.innerText = "Saving...";
             btn.disabled = true;
             try {
                 await setDoc(doc(db, 'records_v1', user.uid, 'days', selectedDate), {
-                    amount: Number(amount) || 0,
-                    tableFee: Number(tableFee) || 0,
-                    memo: memo,
+                    amount: Number(document.getElementById('m_amount').value) || 0,
+                    tableFee: Number(document.getElementById('m_fee').value) || 0,
+                    memo: document.getElementById('m_memo').value,
                     updatedAt: new Date().toISOString(),
                     deleted: false
                 });
                 closeModal();
             } catch(e) {
-                alert("儲存失敗！");
+                alert("Error!");
                 btn.innerText = "儲存戰報";
                 btn.disabled = false;
             }
@@ -191,27 +208,27 @@
             const r = records[selectedDate] || { amount: 0, tableFee: 0, memo: '' };
             return `
                 <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/98 backdrop-blur-xl">
-                    <div class="bg-zinc-950 rounded-[2.5rem] w-full max-w-sm border border-zinc-800 shadow-2xl overflow-hidden p-8">
-                        <div class="flex justify-between items-center mb-8">
-                            <h3 class="font-black text-2xl text-orange-500 tracking-tighter">${selectedDate}</h3>
-                            <button onclick="closeModal()" class="text-4xl text-zinc-700">&times;</button>
+                    <div class="bg-zinc-950 rounded-[2.5rem] w-full max-w-sm border border-zinc-800 shadow-2xl overflow-hidden p-7 animate-in zoom-in duration-200">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-black text-xl text-orange-500 tracking-tighter italic">${selectedDate}</h3>
+                            <button onclick="closeModal()" class="text-3xl text-zinc-700 hover:text-white">&times;</button>
                         </div>
                         <div class="space-y-6">
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="space-y-2">
-                                    <label class="text-[10px] font-black text-zinc-700 uppercase">輸贏</label>
-                                    <input id="m_amount" type="number" inputmode="numeric" value="${r.amount}">
+                                    <label class="text-[9px] font-black text-zinc-600 uppercase tracking-widest">贏 / 輸</label>
+                                    <input id="m_amount" type="number" inputmode="numeric" class="font-black text-lg" value="${r.amount}">
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-[10px] font-black text-zinc-700 uppercase">台費</label>
-                                    <input id="m_fee" type="number" inputmode="numeric" value="${r.tableFee}">
+                                    <label class="text-[9px] font-black text-zinc-600 uppercase tracking-widest">台費</label>
+                                    <input id="m_fee" type="number" inputmode="numeric" class="font-black text-lg" value="${r.tableFee}">
                                 </div>
                             </div>
                             <div class="space-y-2">
-                                <label class="text-[10px] font-black text-orange-500 uppercase tracking-widest">記事備忘</label>
-                                <textarea id="m_memo" placeholder="預約打牌或記事..." class="h-32 resize-none text-sm">${r.memo || ''}</textarea>
+                                <label class="text-[9px] font-black text-orange-500 uppercase tracking-widest">備忘錄</label>
+                                <textarea id="m_memo" placeholder="輸入記事..." class="h-28 resize-none text-sm">${r.memo || ''}</textarea>
                             </div>
-                            <button id="save-btn" onclick="saveData()" class="w-full bg-orange-500 text-black py-4 rounded-3xl font-black text-lg shadow-xl active:scale-95 transition-all">儲存戰報</button>
+                            <button id="save-btn" onclick="saveData()" class="w-full bg-orange-500 text-black py-4 rounded-3xl font-black text-base shadow-xl active:scale-95 transition-all">儲存戰報</button>
                         </div>
                     </div>
                 </div>
