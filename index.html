@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2026 麻將戰績紀錄 Pro</title>
+    <title>2026 麻將戰報 Pro</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#064e3b">
     <link rel="apple-touch-icon" href="mahjong.png">
@@ -12,23 +12,32 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
+    <script src="https://unpkg.com/lucide@latest"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .calendar-grid { display: grid; grid-template-cols: repeat(7, 1fr); gap: 4px; }
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        /* 動畫效果 */
+        @keyframes slideInUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-in { animation: slideInUp 0.5s ease-out forwards; }
     </style>
 </head>
-<body class="bg-slate-100 overflow-hidden">
+<body class="bg-[#F1F5F9]">
     <div id="root"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-        import { getFirestore, collection, doc, addDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
+        // 直接填入你的金鑰
         const firebaseConfig = {
             apiKey: "AIzaSyAUPqdwv4iJ6ebrkdKZNcZpwWBXUg2mQsk",
             authDomain: "mahjong-app-8aacb.firebaseapp.com",
@@ -40,230 +49,307 @@
         };
 
         const app = initializeApp(firebaseConfig);
-        window.fb = { 
-            auth: getAuth(app), 
-            db: getFirestore(app), 
-            appIdPrefix: "mahjong-tracker-2026",
-            signInAnonymously, onAuthStateChanged, collection, doc, addDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp 
-        };
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = 'mahjong-2026-v3';
 
+        // 將方法掛載到 window 供 React 使用
+        window.fb = { auth, db, appId, signInAnonymously, onAuthStateChanged, collection, doc, setDoc, deleteDoc, onSnapshot };
+
+        // PWA Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(e => console.log("SW Status: Not found, ignoring."));
+                navigator.serviceWorker.register('./sw.js').catch(() => {});
             });
         }
     </script>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-
-        // 自定義 SVG 圖示，避免依賴 Lucide 報錯
-        const Icons = {
-            ChevronLeft: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>,
-            ChevronRight: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>,
-            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>,
-            Trash: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>,
-            Win: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.5 4.5L21.75 7.5M21.75 7.5V12m0-4.5H17.25" /></svg>,
-            Loss: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6L9 12.75l4.5-4.5L21.75 16.5M21.75 16.5v-4.5m0 4.5H17.25" /></svg>,
-            X: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-        };
-
-        const PRESET_STAKES = ["30/10", "50/20", "100/20", "100/30"];
+        const { 
+            Calendar: CalendarIcon, TrendingUp, TrendingDown, 
+            ChevronLeft, ChevronRight, Trash2, X, PieChart, 
+            Target, Award, History, LayoutDashboard, Coins
+        } = lucide;
 
         const App = () => {
-            const today = new Date();
             const [user, setUser] = useState(null);
             const [records, setRecords] = useState([]);
-            const [loading, setLoading] = useState(true);
-            const [currentMonth, setCurrentMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
-            const [selectedDate, setSelectedDate] = useState(today);
             const [isModalOpen, setIsModalOpen] = useState(false);
+            const [currentMonth, setCurrentMonth] = useState(new Date(2026, 0, 1));
+            const [loading, setLoading] = useState(true);
+            
+            const [formData, setFormData] = useState({
+                date: new Date().toISOString().split('T')[0],
+                stakes: '50/20',
+                customStakes: '',
+                tableFee: '',
+                type: 'win',
+                amount: ''
+            });
 
-            const [stake, setStake] = useState("30/10");
-            const [customStake, setCustomStake] = useState("");
-            const [tableFee, setTableFee] = useState(0);
-            const [isWin, setIsWin] = useState(true);
-            const [amount, setAmount] = useState(0);
+            const stakeOptions = ['30/10', '50/20', '100/20', '100/30', '其他'];
 
             useEffect(() => {
                 const { auth, signInAnonymously, onAuthStateChanged } = window.fb;
                 signInAnonymously(auth).catch(console.error);
-                return onAuthStateChanged(auth, (u) => {
-                    setUser(u);
-                    if(!u) setLoading(false);
-                });
+                const unsubscribe = onAuthStateChanged(auth, setUser);
+                return () => unsubscribe();
             }, []);
 
             useEffect(() => {
                 if (!user) return;
-                const { db, appIdPrefix, collection, onSnapshot, query, orderBy } = window.fb;
-                const recordsCol = collection(db, 'artifacts', appIdPrefix, 'users', user.uid, 'records');
-                const q = query(recordsCol, orderBy("createdAt", "desc"));
+                const { db, appId, collection, onSnapshot } = window.fb;
+                const q = collection(db, 'artifacts', appId, 'public', 'data', 'records');
                 
-                return onSnapshot(q, (snapshot) => {
+                const unsubscribe = onSnapshot(q, (snapshot) => {
                     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setRecords(data);
+                    setRecords(data.sort((a, b) => new Date(b.date) - new Date(a.date)));
+                    setLoading(false);
+                }, (err) => {
+                    console.error("Firestore error:", err);
                     setLoading(false);
                 });
+                return () => unsubscribe();
             }, [user]);
 
             const stats = useMemo(() => {
-                return records.reduce((acc, rec) => {
+                const calculate = (list) => list.reduce((acc, rec) => {
                     const amt = Number(rec.amount) || 0;
                     const fee = Number(rec.tableFee) || 0;
-                    if (rec.type === 'win') acc.totalWin += amt;
-                    else acc.totalLoss += amt;
-                    acc.totalFee += fee;
+                    if (rec.type === 'win') { acc.won += amt; acc.winCount += 1; }
+                    else { acc.lost += amt; acc.lossCount += 1; }
+                    acc.fees += fee;
                     return acc;
-                }, { totalWin: 0, totalLoss: 0, totalFee: 0 });
-            }, [records]);
+                }, { won: 0, lost: 0, fees: 0, winCount: 0, lossCount: 0 });
 
-            const netProfit = stats.totalWin - stats.totalLoss - stats.totalFee;
-            const getLocalDateString = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-            const selectedDateStr = getLocalDateString(selectedDate);
-            const dayRecords = records.filter(r => r.date === selectedDateStr);
+                const global = calculate(records);
+                const yearlyRecords = records.filter(r => r.date.startsWith('2026'));
+                const yearly = calculate(yearlyRecords);
+                const targetMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+                const monthly = calculate(records.filter(r => r.date.startsWith(targetMonthStr)));
+
+                return { global, yearly, monthly };
+            }, [records, currentMonth]);
+
+            const winRate = stats.global.winCount + stats.global.lossCount > 0 
+                ? ((stats.global.winCount / (stats.global.winCount + stats.global.lossCount)) * 100).toFixed(1)
+                : 0;
+
+            const monthlyNet = stats.monthly.won - stats.monthly.lost - stats.monthly.fees;
+            const yearlyNet = stats.yearly.won - stats.yearly.lost - stats.yearly.fees;
 
             const handleAddRecord = async () => {
-                if (!user || amount === "" || (Number(amount) === 0 && Number(tableFee) === 0)) return;
-                const { db, appIdPrefix, collection, addDoc, serverTimestamp } = window.fb;
-                await addDoc(collection(db, 'artifacts', appIdPrefix, 'users', user.uid, 'records'), {
-                    date: selectedDateStr,
-                    stake: stake === "其他" ? customStake : stake,
-                    tableFee: Number(tableFee),
-                    type: isWin ? 'win' : 'loss',
-                    amount: Number(amount),
-                    createdAt: serverTimestamp()
-                });
-                setAmount(0); setTableFee(0);
-                setIsModalOpen(false);
+                if (!user || !formData.amount || !formData.date) return;
+                const { db, appId, doc, setDoc } = window.fb;
+                const id = Date.now().toString();
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id), {
+                        ...formData,
+                        amount: Number(formData.amount),
+                        tableFee: Number(formData.tableFee || 0),
+                        finalStakes: formData.stakes === '其他' ? formData.customStakes : formData.stakes,
+                        createdAt: new Date().toISOString()
+                    });
+                    setIsModalOpen(false);
+                    setFormData({ ...formData, amount: '', tableFee: '', customStakes: '' });
+                } catch (err) { console.error("Save error:", err); }
             };
 
-            const handleDeleteRecord = async (id) => {
-                if(!confirm("確定要刪除嗎？")) return;
-                const { db, appIdPrefix, doc, deleteDoc } = window.fb;
-                await deleteDoc(doc(db, 'artifacts', appIdPrefix, 'users', user.uid, 'records', id));
+            const deleteRecord = async (id) => {
+                if (!user || !confirm("確定刪除？")) return;
+                const { db, appId, doc, deleteDoc } = window.fb;
+                try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id)); }
+                catch (err) { console.error("Delete error:", err); }
             };
 
-            const daysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-            const firstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+            const renderCalendar = () => {
+                const year = currentMonth.getFullYear();
+                const month = currentMonth.getMonth();
+                const days = [];
+                const totalDays = new Date(year, month + 1, 0).getDate();
+                const startDay = new Date(year, month, 1).getDay();
 
-            if (loading) return <div className="h-screen flex items-center justify-center bg-emerald-900 text-white font-black">載入中...</div>;
+                for (let i = 0; i < startDay; i++) {
+                    days.push(<div key={`e-${i}`} className="h-20 bg-slate-50/50 border-b border-r border-slate-100"></div>);
+                }
+
+                for (let d = 1; d <= totalDays; d++) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    const dayRecords = records.filter(r => r.date === dateStr);
+                    const dayProfit = dayRecords.reduce((s, r) => s + (r.type === 'win' ? r.amount : -r.amount) - r.tableFee, 0);
+
+                    days.push(
+                        <div key={d} onClick={() => { setFormData({ ...formData, date: dateStr }); setIsModalOpen(true); }}
+                            className="h-20 border-b border-r border-slate-100 p-1 flex flex-col items-center cursor-pointer hover:bg-emerald-50 transition-all group"
+                        >
+                            <span className={`text-[10px] font-bold mb-1 ${dateStr === new Date().toISOString().split('T')[0] ? 'bg-emerald-600 text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-slate-400'}`}>
+                                {d}
+                            </span>
+                            {dayProfit !== 0 && (
+                                <div className={`text-[11px] font-black leading-tight text-center ${dayProfit > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                    {dayProfit > 0 ? `+${dayProfit}` : dayProfit}
+                                </div>
+                            )}
+                            <div className="mt-auto flex gap-0.5">
+                                {dayRecords.map((_, i) => (<div key={i} className="w-1 h-1 bg-amber-400 rounded-full"></div>))}
+                            </div>
+                        </div>
+                    );
+                }
+                return days;
+            };
 
             return (
-                <div className="h-screen max-h-screen flex flex-col bg-slate-100 text-slate-900 overflow-hidden">
-                    <div className="bg-gradient-to-br from-emerald-900 to-teal-900 text-white pt-6 pb-6 px-5 shadow-xl shrink-0 rounded-b-[2.5rem]">
-                        <div className="flex justify-between items-end mb-4">
+                <div className="min-h-screen pb-12">
+                    <header className="bg-white border-b border-slate-200 sticky top-0 z-40 px-6 py-4 shadow-sm text-left">
+                        <div className="max-w-2xl mx-auto flex items-center gap-3">
+                            <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                                <Award size={24} />
+                            </div>
                             <div>
-                                <p className="text-[10px] opacity-60 font-black tracking-widest uppercase">2026 MAHJONG PRO</p>
-                                <h1 className="text-2xl font-black italic">年度戰績</h1>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-[10px] opacity-60 font-bold">NET PROFIT</p>
-                                <p className={`text-3xl font-black ${netProfit >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
-                                    ${netProfit.toLocaleString()}
-                                </p>
+                                <h1 className="text-lg font-black tracking-tighter text-slate-900 leading-tight">2026 麻將戰報</h1>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mahjong Tracker Pro</p>
                             </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="bg-white/10 rounded-2xl p-2 text-center border border-white/10">
-                                <span className="text-[9px] opacity-60 block">贏</span>
-                                <span className="font-black text-emerald-300">+{stats.totalWin.toLocaleString()}</span>
-                            </div>
-                            <div className="bg-white/10 rounded-2xl p-2 text-center border border-white/10">
-                                <span className="text-[9px] opacity-60 block">輸</span>
-                                <span className="font-black text-red-300">-{stats.totalLoss.toLocaleString()}</span>
-                            </div>
-                            <div className="bg-white/10 rounded-2xl p-2 text-center border border-white/10">
-                                <span className="text-[9px] opacity-60 block">台費</span>
-                                <span className="font-black text-amber-200">{stats.totalFee.toLocaleString()}</span>
-                            </div>
-                        </div>
-                    </div>
+                    </header>
 
-                    <div className="flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full p-4 space-y-4">
-                        <div className="bg-white rounded-[2rem] shadow-sm p-4 shrink-0">
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="font-black text-slate-700">{currentMonth.getFullYear()} - {currentMonth.getMonth() + 1}月</h2>
-                                <div className="flex gap-4">
-                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))} className="text-slate-400"><Icons.ChevronLeft/></button>
-                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))} className="text-slate-400"><Icons.ChevronRight/></button>
+                    <main className="max-w-2xl mx-auto p-4 space-y-4">
+                        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="md:col-span-2 bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 relative overflow-hidden group">
+                                <div className="relative z-10">
+                                    <div className="flex justify-between mb-4">
+                                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <LayoutDashboard size={14} /> {currentMonth.getMonth() + 1}月收益
+                                        </span>
+                                    </div>
+                                    <h2 className={`text-4xl font-black mb-2 ${monthlyNet >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                        ${monthlyNet.toLocaleString()}
+                                    </h2>
+                                    <div className="flex gap-4 text-[11px] font-bold text-slate-500">
+                                        <span>贏: <span className="text-emerald-500">+{stats.monthly.won}</span></span>
+                                        <span>輸: <span className="text-rose-400">-{stats.monthly.lost}</span></span>
+                                        <span>台費: <span className="text-amber-500">{stats.monthly.fees}</span></span>
+                                    </div>
+                                </div>
+                                <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:scale-110 transition-transform">
+                                    <TrendingUp size={120} />
                                 </div>
                             </div>
-                            <div className="calendar-grid">
-                                {['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d} className="text-[10px] text-slate-300 font-black text-center">{d}</div>)}
-                                {Array(firstDayOfMonth(currentMonth)).fill(0).map((_, i) => <div key={`e-${i}`} />)}
-                                {Array(daysInMonth(currentMonth)).fill(0).map((_, i) => {
-                                    const day = i + 1;
-                                    const dateObj = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-                                    const dStr = getLocalDateString(dateObj);
-                                    const isS = selectedDateStr === dStr;
-                                    const dayRecs = records.filter(r => r.date === dStr);
-                                    const dNet = dayRecs.reduce((acc, r) => acc + (r.type === 'win' ? r.amount : -r.amount) - r.tableFee, 0);
-                                    return (
-                                        <button key={day} onClick={() => setSelectedDate(dateObj)} className={`h-11 flex flex-col items-center justify-center rounded-xl text-xs ${isS ? 'bg-emerald-700 text-white' : 'bg-slate-50 text-slate-600'}`}>
-                                            <span className="font-bold">{day}</span>
-                                            {dayRecs.length > 0 && <span className={`text-[7px] ${isS ? 'text-white' : (dNet >= 0 ? 'text-emerald-500' : 'text-red-500')}`}>{dNet >= 0 ? `+${dNet}` : dNet}</span>}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
 
-                        <div className="flex-1 flex flex-col min-h-0 bg-white rounded-[2rem] shadow-sm p-5 overflow-hidden">
-                            <div className="flex justify-between items-center mb-4 shrink-0">
-                                <h3 className="font-black text-sm italic">{selectedDate.getMonth() + 1}.{selectedDate.getDate()} 紀錄</h3>
-                                <button onClick={() => setIsModalOpen(true)} className="bg-emerald-700 text-white px-4 py-2 rounded-xl text-[11px] font-black flex items-center gap-1 shadow-md">
-                                    <Icons.Plus /> 新增
-                                </button>
+                            <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-xl flex flex-col justify-between">
+                                <div>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
+                                        <Coins size={14} className="text-amber-400" /> 2026 年收益
+                                    </span>
+                                    <div className={`text-2xl font-black ${yearlyNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        ${yearlyNet.toLocaleString()}
+                                    </div>
+                                </div>
+                                <div className="mt-4 pt-4 border-t border-slate-800 text-[10px] font-bold text-slate-500 uppercase flex justify-between">
+                                    <span>年度累計</span>
+                                    <span className="text-amber-400">發發發</span>
+                                </div>
                             </div>
-                            <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar">
-                                {dayRecords.length === 0 ? <div className="text-center text-slate-300 py-10 text-xs font-bold">今日無紀錄</div> : dayRecords.map(rec => (
-                                    <div key={rec.id} className="bg-slate-50 p-4 rounded-2xl flex items-center justify-between border border-slate-100">
+                        </section>
+
+                        <section className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+                            <div className="flex justify-between mb-3">
+                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Target size={14} /> 戰力分析</span>
+                                <span className="text-xs font-black text-emerald-600">{winRate}% 勝率</span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                                <div className="bg-emerald-500 h-full transition-all duration-1000" style={{ width: `${winRate}%` }}></div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 mt-4">
+                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">總對局數</p>
+                                    <p className="text-sm font-black text-slate-700">{stats.global.winCount + stats.global.lossCount} 場</p>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">總計台費</p>
+                                    <p className="text-sm font-black text-amber-600">${stats.global.fees.toLocaleString()}</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                            <div className="bg-slate-50/50 px-6 py-4 flex items-center justify-between border-b border-slate-100">
+                                <h3 className="font-black text-slate-800 flex items-center gap-2 text-sm">
+                                    <CalendarIcon size={18} className="text-emerald-600" />
+                                    {currentMonth.getFullYear()}年 {currentMonth.getMonth() + 1}月
+                                </h3>
+                                <div className="flex bg-white rounded-xl shadow-sm border border-slate-200 p-1">
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-1.5 hover:bg-slate-50 rounded-lg"><ChevronLeft size={18}/></button>
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-1.5 hover:bg-slate-50 rounded-lg"><ChevronRight size={18}/></button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-7 text-center text-[10px] font-black text-slate-300 py-3 uppercase tracking-tighter border-b border-slate-50">
+                                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                            </div>
+                            <div className="grid grid-cols-7">{renderCalendar()}</div>
+                        </section>
+
+                        <section className="space-y-4">
+                            <div className="flex justify-between items-center px-2">
+                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><History size={14} /> 最近對局</h3>
+                            </div>
+                            <div className="space-y-3">
+                                {records.slice(0, 8).map(record => (
+                                    <div key={record.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group hover:border-emerald-200">
                                         <div className="flex items-center gap-4">
-                                            <div className={`p-2 rounded-xl ${rec.type === 'win' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
-                                                {rec.type === 'win' ? <Icons.Win /> : <Icons.Loss />}
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${record.type === 'win' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
+                                                {record.type === 'win' ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
                                             </div>
                                             <div>
-                                                <div className="font-black text-lg">{rec.type === 'win' ? '+' : '-'}{rec.amount} <span className="text-[10px] text-slate-400 font-normal">{rec.stake}</span></div>
-                                                <div className="text-[10px] text-slate-400">台費: ${rec.tableFee}</div>
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    <span className="text-[10px] font-black text-slate-400">{record.date}</span>
+                                                    <span className="bg-slate-100 text-slate-600 text-[9px] px-2 py-0.5 rounded-full font-black uppercase">{record.finalStakes}</span>
+                                                </div>
+                                                <div className="flex items-baseline gap-2 leading-none">
+                                                    <span className={`text-xl font-black ${record.type === 'win' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                                        {record.type === 'win' ? '+' : '-'}{record.amount.toLocaleString()}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 font-bold">台費: {record.tableFee}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <button onClick={() => handleDeleteRecord(rec.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Icons.Trash /></button>
+                                        <button onClick={() => deleteRecord(record.id)} className="text-slate-200 hover:text-rose-500 p-2"><Trash2 size={18} /></button>
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    </div>
+                        </section>
+                    </main>
 
                     {isModalOpen && (
-                        <div className="fixed inset-0 z-50 flex items-end justify-center p-4">
-                            <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-                            <div className="relative bg-white w-full max-w-md rounded-[2.5rem] p-8 animate-in slide-in-from-bottom duration-300">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h2 className="text-xl font-black italic">建立戰績</h2>
-                                    <button onClick={() => setIsModalOpen(false)} className="text-slate-400"><Icons.X /></button>
-                                </div>
-                                <div className="space-y-6">
-                                    <div className="grid grid-cols-5 gap-2">
-                                        {[...PRESET_STAKES, "其他"].map(s => (
-                                            <button key={s} onClick={() => setStake(s)} className={`py-2 rounded-lg text-[10px] border-2 font-black transition-all ${stake === s ? 'border-emerald-700 bg-emerald-50 text-emerald-800' : 'border-slate-50 text-slate-400'}`}>{s}</button>
-                                        ))}
+                        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
+                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+                            <div className="relative bg-white w-full max-w-md rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden animate-in">
+                                <div className="p-8">
+                                    <div className="flex justify-between items-center mb-8">
+                                        <h2 className="text-2xl font-black text-slate-900">紀錄對局</h2>
+                                        <button onClick={() => setIsModalOpen(false)} className="bg-slate-100 p-2 rounded-full"><X size={20} /></button>
                                     </div>
-                                    <div className="flex gap-3">
-                                        <button onClick={() => setIsWin(true)} className={`flex-1 py-4 rounded-2xl font-black transition-all ${isWin ? 'bg-emerald-50 border-2 border-emerald-600 text-emerald-700 shadow-inner' : 'bg-slate-50 text-slate-400'}`}>贏 (+)</button>
-                                        <button onClick={() => setIsWin(false)} className={`flex-1 py-4 rounded-2xl font-black transition-all ${!isWin ? 'bg-red-50 border-2 border-red-600 text-red-700 shadow-inner' : 'bg-slate-50 text-slate-400'}`}>輸 (-)</button>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                            <label className="text-[10px] font-black text-slate-400 block mb-1">金額</label>
-                                            <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-transparent text-2xl font-black outline-none" />
+                                    <div className="space-y-6">
+                                        <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full bg-slate-50 rounded-2xl px-5 py-4 font-bold border-none" />
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="flex bg-slate-100 p-1 rounded-2xl">
+                                                <button onClick={() => setFormData({...formData, type: 'win'})} className={`flex-1 py-3 rounded-xl font-black text-sm ${formData.type === 'win' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>贏錢</button>
+                                                <button onClick={() => setFormData({...formData, type: 'loss'})} className={`flex-1 py-3 rounded-xl font-black text-sm ${formData.type === 'loss' ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400'}`}>輸錢</button>
+                                            </div>
+                                            <input type="number" placeholder="台費" value={formData.tableFee} onChange={(e) => setFormData({...formData, tableFee: e.target.value})} className="w-full bg-slate-50 rounded-2xl px-5 py-3.5 font-bold border-none" />
                                         </div>
-                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                            <label className="text-[10px] font-black text-slate-400 block mb-1">台費</label>
-                                            <input type="number" inputMode="numeric" value={tableFee} onChange={(e) => setTableFee(e.target.value)} className="w-full bg-transparent text-2xl font-black outline-none" />
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {stakeOptions.map(opt => (
+                                                <button key={opt} onClick={() => setFormData({...formData, stakes: opt})} className={`py-3 rounded-xl font-black text-xs border ${formData.stakes === opt ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>{opt}</button>
+                                            ))}
                                         </div>
+                                        <div className="relative">
+                                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 font-black text-2xl">$</span>
+                                            <input type="number" placeholder="結算金額" value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} className="w-full bg-slate-50 rounded-2xl pl-12 pr-6 py-6 text-3xl font-black text-slate-900 border-none" />
+                                        </div>
+                                        <button onClick={handleAddRecord} disabled={!formData.amount} className="w-full bg-slate-900 hover:bg-emerald-600 disabled:bg-slate-200 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl">儲存並發財</button>
                                     </div>
-                                    <button onClick={handleAddRecord} className="w-full py-4 bg-emerald-700 text-white rounded-2xl font-black shadow-lg active:scale-95 transition-transform uppercase tracking-widest">儲存至雲端</button>
                                 </div>
                             </div>
                         </div>
