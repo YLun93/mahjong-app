@@ -12,11 +12,15 @@ import {
 } from 'lucide-react';
 
 // --- Firebase 配置 ---
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'mahjong-2026-v3';
+const firebaseConfig = {
+  apiKey: "AIzaSyAUPqdwv4iJ6ebrkdKZNcZpwWBXUg2mQsk",
+  authDomain: "mahjong-app-8aacb.firebaseapp.com",
+  projectId: "mahjong-app-8aacb",
+  storageBucket: "mahjong-app-8aacb.firebasestorage.app",
+  messagingSenderId: "344119682978",
+  appId: "1:344119682978:web:b571898505e28f8dc2b4fb",
+  measurementId: "G-410BN7WGZY"
+};
 
 const App = () => {
   const [user, setUser] = useState(null);
