@@ -55,6 +55,7 @@
             collection, doc, setDoc, deleteDoc, onSnapshot 
         };
 
+        // 註冊 Service Worker 解決 404 錯誤（前提是您有 sw.js 檔案）
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js').catch(() => {});
@@ -66,7 +67,7 @@
         const { useState, useEffect, useMemo } = React;
         const { 
             Calendar: CalendarIcon, TrendingUp, TrendingDown, 
-            ChevronLeft, ChevronRight, Trash2, X, Award, Coins
+            ChevronLeft, ChevronRight, Trash2, X, Award
         } = lucide;
 
         const App = () => {
@@ -124,7 +125,7 @@
             }, [records, currentMonth]);
 
             const monthlyNet = stats.monthly.won - stats.monthly.lost - stats.monthly.fees;
-            const yearlyNet = stats.yearly.won - stats.yearly.lost - stats.yearly.fees;
+            const yearlyNet = stats.yearly.won - stats.yearly.lost - stats.fees;
 
             const handleAddRecord = async () => {
                 if (!user || !formData.amount) return;
@@ -223,7 +224,7 @@
                                 <div className="bg-slate-900 px-4 py-2 rounded-xl shadow-md text-right">
                                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-0.5">2026 總計</p>
                                     <p className={`text-sm font-black ${yearlyNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        ${yearlyNet.toLocaleString()}
+                                        ${(stats.yearly.won - stats.yearly.lost - stats.yearly.fees).toLocaleString()}
                                     </p>
                                 </div>
                             </div>
