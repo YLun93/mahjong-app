@@ -9,18 +9,19 @@
     <link rel="apple-touch-icon" href="mahjong.png">
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .calendar-grid { display: grid; grid-template-cols: repeat(7, 1fr); gap: 4px; }
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .calendar-grid { display: grid; grid-template-cols: repeat(7, 1fr); gap: 4px; }
     </style>
 </head>
 <body class="bg-slate-100 overflow-hidden">
@@ -42,23 +43,24 @@
         };
 
         const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appIdPrefix = "mahjong-tracker-2026";
+        window.fb = { 
+            auth: getAuth(app), 
+            db: getFirestore(app), 
+            appIdPrefix: "mahjong-tracker-2026",
+            signInAnonymously, onAuthStateChanged, collection, doc, addDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp 
+        };
 
-        window.fb = { auth, db, appIdPrefix, signInAnonymously, onAuthStateChanged, collection, doc, addDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp };
-
-        // 註冊 Service Worker (PWA 關鍵)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(console.error);
+                navigator.serviceWorker.register('./sw.js').catch(e => console.log("SW error:", e));
             });
         }
     </script>
 
     <script type="text/babel">
+        // 修正：從 LucideReact 中提取圖示
+        const { ChevronLeft, ChevronRight, Plus, Trash2, TrendingUp, TrendingDown, X, Cloud, CloudOff } = lucide;
         const { useState, useEffect, useMemo } = React;
-        const { ChevronLeft, ChevronRight, Plus, Trash2, TrendingUp, TrendingDown, X, Cloud, CloudOff } = Lucide;
 
         const PRESET_STAKES = ["30/10", "50/20", "100/20", "100/30"];
 
@@ -126,7 +128,7 @@
                     amount: Number(amount),
                     createdAt: serverTimestamp()
                 });
-                resetForm();
+                setAmount(0); setTableFee(0);
                 setIsModalOpen(false);
             };
 
@@ -136,11 +138,10 @@
                 await deleteDoc(doc(db, 'artifacts', appIdPrefix, 'users', user.uid, 'records', id));
             };
 
-            const resetForm = () => { setStake("30/10"); setCustomStake(""); setTableFee(0); setIsWin(true); setAmount(0); };
             const daysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
             const firstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
 
-            if (loading) return <div className="h-screen flex items-center justify-center bg-emerald-900 text-white font-black italic">LOADING...</div>;
+            if (loading) return <div className="h-screen flex items-center justify-center bg-emerald-900 text-white font-black italic">PRO DATA LOADING...</div>;
 
             return (
                 <div className="h-screen max-h-screen flex flex-col bg-slate-100 text-slate-900 overflow-hidden">
@@ -185,7 +186,7 @@
                                 </div>
                             </div>
                             <div className="calendar-grid">
-                                {['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d} className="text-[10px] text-slate-300 font-black">{d}</div>)}
+                                {['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d} className="text-[10px] text-slate-300 font-black text-center">{d}</div>)}
                                 {Array(firstDayOfMonth(currentMonth)).fill(0).map((_, i) => <div key={`e-${i}`} />)}
                                 {Array(daysInMonth(currentMonth)).fill(0).map((_, i) => {
                                     const day = i + 1;
@@ -206,7 +207,7 @@
 
                         <div className="flex-1 flex flex-col min-h-0 bg-white rounded-[2rem] shadow-sm p-5 overflow-hidden">
                             <div className="flex justify-between items-center mb-4 shrink-0">
-                                <h3 className="font-black text-sm uppercase italic">{selectedDate.getMonth() + 1}.{selectedDate.getDate()} 紀錄</h3>
+                                <h3 className="font-black text-sm italic">{selectedDate.getMonth() + 1}.{selectedDate.getDate()} 紀錄</h3>
                                 <button onClick={() => setIsModalOpen(true)} className="bg-emerald-700 text-white px-4 py-2 rounded-xl text-[11px] font-black">+ 新增</button>
                             </div>
                             <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar">
@@ -249,11 +250,11 @@
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="bg-slate-50 p-4 rounded-2xl">
                                             <label className="text-[10px] font-black text-slate-400 block mb-1">金額</label>
-                                            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-transparent text-2xl font-black outline-none" />
+                                            <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-transparent text-2xl font-black outline-none" />
                                         </div>
                                         <div className="bg-slate-50 p-4 rounded-2xl">
                                             <label className="text-[10px] font-black text-slate-400 block mb-1">台費</label>
-                                            <input type="number" value={tableFee} onChange={(e) => setTableFee(e.target.value)} className="w-full bg-transparent text-2xl font-black outline-none" />
+                                            <input type="number" inputMode="numeric" value={tableFee} onChange={(e) => setTableFee(e.target.value)} className="w-full bg-transparent text-2xl font-black outline-none" />
                                         </div>
                                     </div>
                                     <button onClick={handleAddRecord} className="w-full py-4 bg-emerald-700 text-white rounded-2xl font-black shadow-lg">儲存紀錄</button>
@@ -265,4 +266,8 @@
             );
         };
 
-        const root = ReactDOM.createRoot
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
