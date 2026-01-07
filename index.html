@@ -15,14 +15,14 @@
         body {
             font-family: 'SF Pro Display', 'Noto Sans TC', sans-serif;
             -webkit-tap-highlight-color: transparent;
-            background-color: #f8fafc;
+            background-color: #f1f5f9;
             color: #0f172a;
             margin: 0;
             padding: 0;
             overflow-x: hidden;
         }
 
-        /* 核心日曆佈局加固 */
+        /* 穩定日曆網格 */
         .calendar-wrapper {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
@@ -33,12 +33,12 @@
 
         .calendar-day {
             background-color: white;
-            min-height: 70px;
+            min-height: 65px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            padding-top: 10px;
+            padding-top: 8px;
             position: relative;
             min-width: 0;
             transition: background-color 0.2s;
@@ -48,7 +48,7 @@
             padding-bottom: env(safe-area-inset-bottom);
         }
 
-        /* 隱藏原生日期圖示 */
+        /* 隱藏日期選擇器圖示 */
         input[type="date"]::-webkit-inner-spin-button,
         input[type="date"]::-webkit-calendar-picker-indicator {
             display: none;
@@ -60,30 +60,22 @@
         }
 
         @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
         .blur-header {
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            background-color: rgba(255, 255, 255, 0.8);
+            background-color: rgba(255, 255, 255, 0.85);
         }
 
-        .premium-shadow {
-            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05);
+        .card-shadow {
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
         }
 
-        .gradient-card {
-            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        }
-
-        .profit-badge {
-            font-size: 10px;
-            font-weight: 900;
-            padding: 1px 4px;
-            border-radius: 4px;
-            line-height: 1.2;
+        .stat-card-gradient {
+            background: linear-gradient(145deg, #ffffff, #f8fafc);
         }
     </style>
 </head>
@@ -210,7 +202,7 @@
 
                 const days = [];
                 for (let i = 0; i < startDay; i++) {
-                    days.push(<div key={`empty-${i}`} className="calendar-day bg-slate-50/20"></div>);
+                    days.push(<div key={`empty-${i}`} className="calendar-day bg-slate-50/40"></div>);
                 }
 
                 for (let d = 1; d <= totalDays; d++) {
@@ -225,20 +217,18 @@
                         <div 
                             key={d} 
                             onClick={() => { setFormData({ ...formData, date: dateStr }); setIsModalOpen(true); }}
-                            className={`calendar-day cursor-pointer transition-colors active:scale-95 ${isWeekend ? 'bg-slate-50/40' : 'bg-white'} hover:bg-emerald-50`}
+                            className={`calendar-day cursor-pointer transition-colors active:scale-95 ${isWeekend ? 'bg-slate-50/60' : 'bg-white'} hover:bg-emerald-50`}
                         >
-                            <span className={`text-[11px] font-bold mb-1.5 w-6 h-6 flex items-center justify-center transition-all ${isToday ? 'bg-emerald-600 text-white rounded-lg shadow-lg shadow-emerald-200 ring-2 ring-white' : isWeekend ? 'text-slate-400' : 'text-slate-500'}`}>
+                            <span className={`text-[10px] font-black w-6 h-6 flex items-center justify-center mb-1 ${isToday ? 'bg-emerald-600 text-white rounded-lg shadow-lg' : isWeekend ? 'text-slate-400' : 'text-slate-500'}`}>
                                 {d}
                             </span>
                             {dayProfit !== 0 && (
-                                <div className={`profit-badge ${dayProfit > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'}`}>
+                                <div className={`text-[9px] font-black px-1 py-0.5 rounded leading-none ${dayProfit > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'}`}>
                                     {dayProfit > 0 ? `+${dayProfit}` : dayProfit}
                                 </div>
                             )}
                             {dayRecords.length > 0 && (
-                                <div className="absolute bottom-1.5 flex gap-0.5">
-                                    <div className="w-1 h-1 bg-amber-400 rounded-full"></div>
-                                </div>
+                                <div className="absolute bottom-1.5 w-1 h-1 bg-amber-400 rounded-full"></div>
                             )}
                         </div>
                     );
@@ -247,163 +237,167 @@
             };
 
             return (
-                <div className="min-h-screen flex flex-col max-w-md mx-auto bg-[#F8FAFC] border-x border-slate-200 safe-bottom overflow-hidden">
+                <div className="min-h-screen flex flex-col max-w-md mx-auto bg-slate-100 border-x border-slate-200 safe-bottom overflow-hidden">
                     {/* Header */}
-                    <header className="blur-header px-6 py-5 flex items-center border-b border-slate-100 sticky top-0 z-30">
-                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-xl flex items-center justify-center text-white text-xl shadow-lg shadow-emerald-100 mr-4">🀄</div>
+                    <header className="blur-header px-6 py-4 flex items-center border-b border-slate-100 sticky top-0 z-30">
+                        <div className="w-9 h-9 bg-emerald-700 rounded-xl flex items-center justify-center text-white text-lg shadow-lg mr-3 font-bold">🀄</div>
                         <div className="flex-1">
-                            <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">2026 麻將戰報</h1>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1.5">Personal Analytics Pro</p>
+                            <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none">2026 麻將戰報</h1>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Personal Tracking Pro</p>
                         </div>
-                        {loading && <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>}
+                        {loading && <div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>}
                     </header>
 
-                    <main className="flex-1 p-5 space-y-5 overflow-y-auto">
-                        {/* 收益摘要卡片 */}
-                        <section className="bg-white rounded-[1.5rem] p-6 premium-shadow border border-slate-100 gradient-card">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="space-y-1">
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none">本月結算收益</p>
-                                    <h2 className={`text-4xl font-black tracking-tighter ${monthlyNet >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                        ${monthlyNet.toLocaleString()}
-                                    </h2>
-                                </div>
-                                <div className="bg-slate-900 px-4 py-2.5 rounded-2xl text-right shadow-sm">
-                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">年度累計</p>
-                                    <p className={`text-base font-black ${yearlyNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        ${yearlyNet.toLocaleString()}
-                                    </p>
-                                </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-3 gap-2.5">
-                                {[
-                                    { label: '本月贏', val: `+${stats.monthly.won}`, color: 'text-emerald-600', bg: 'bg-emerald-50/40' },
-                                    { label: '本月輸', val: `-${stats.monthly.lost}`, color: 'text-rose-600', bg: 'bg-rose-50/40' },
-                                    { label: '台費', val: `${stats.monthly.fees}`, color: 'text-amber-600', bg: 'bg-amber-50/40' }
-                                ].map((item, idx) => (
-                                    <div key={idx} className={`${item.bg} p-3 rounded-2xl border border-white/50 text-center`}>
-                                        <p className="text-[10px] font-bold text-slate-500 mb-0.5">{item.label}</p>
-                                        <p className={`text-[13px] font-black ${item.color}`}>{item.val}</p>
+                    <main className="flex-1 p-4 space-y-4 overflow-y-auto">
+                        
+                        {/* 核心統計卡片 - 重新優化排版避免跑位 */}
+                        <section className="bg-white rounded-2xl p-5 card-shadow border border-slate-100 stat-card-gradient">
+                            <div className="flex flex-col space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">本月結算淨利</p>
+                                        <h2 className={`text-4xl font-black tracking-tighter leading-none ${monthlyNet >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                            ${monthlyNet.toLocaleString()}
+                                        </h2>
                                     </div>
-                                ))}
+                                    <div className="bg-slate-900 px-4 py-2 rounded-xl shadow-lg border border-slate-800">
+                                        <p className="text-[9px] font-black text-slate-500 uppercase mb-0.5">2026 年度累計</p>
+                                        <p className={`text-lg font-black ${yearlyNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            ${yearlyNet.toLocaleString()}
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-100/50 text-center">
+                                        <p className="text-[9px] font-bold text-emerald-700/60 mb-0.5">本月贏錢</p>
+                                        <p className="text-[12px] font-black text-emerald-600">+{stats.monthly.won}</p>
+                                    </div>
+                                    <div className="bg-rose-50/60 p-2.5 rounded-xl border border-rose-100/50 text-center">
+                                        <p className="text-[9px] font-bold text-rose-700/60 mb-0.5">本月輸錢</p>
+                                        <p className="text-[12px] font-black text-rose-600">-{stats.monthly.lost}</p>
+                                    </div>
+                                    <div className="bg-amber-50/60 p-2.5 rounded-xl border border-amber-100/50 text-center">
+                                        <p className="text-[9px] font-bold text-amber-700/60 mb-0.5">累計台費</p>
+                                        <p className="text-[12px] font-black text-amber-600">${stats.monthly.fees}</p>
+                                    </div>
+                                </div>
                             </div>
                         </section>
 
-                        {/* 日曆區塊 */}
-                        <section className="bg-white rounded-[1.5rem] premium-shadow border border-slate-100 overflow-hidden">
-                            <div className="px-6 py-4 flex items-center justify-between border-b border-slate-50">
+                        {/* 月曆區塊 - 優化穩定性 */}
+                        <section className="bg-white rounded-2xl card-shadow border border-slate-100 overflow-hidden">
+                            <div className="px-5 py-3 flex items-center justify-between border-b border-slate-100">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-emerald-600 font-black text-sm uppercase">{currentMonth.getFullYear()}</span>
-                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-200"></div>
-                                    <span className="text-slate-900 font-black text-xl">{currentMonth.getMonth() + 1}月</span>
+                                    <span className="text-emerald-600 font-black text-xs">{currentMonth.getFullYear()}年</span>
+                                    <span className="text-slate-900 font-black text-lg">{currentMonth.getMonth() + 1}月</span>
                                 </div>
-                                <div className="flex bg-slate-100 p-1 rounded-xl">
-                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-2 text-slate-400 hover:text-emerald-600 transition-colors">
+                                <div className="flex bg-slate-100 p-1 rounded-lg">
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-1.5 text-slate-400 active:text-emerald-600 transition-colors">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                                     </button>
-                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-2 text-slate-400 hover:text-emerald-600 transition-colors">
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-1.5 text-slate-400 active:text-emerald-600 transition-colors">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                                     </button>
                                 </div>
                             </div>
                             
-                            <div className="calendar-wrapper text-center text-[10px] font-black text-slate-300 py-3 uppercase tracking-[0.2em] bg-slate-50/20 border-b border-slate-100">
+                            <div className="calendar-wrapper text-center text-[9px] font-black text-slate-300 py-2 uppercase tracking-widest bg-slate-50/40">
                                 <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
                             </div>
                             
-                            <div className="calendar-wrapper">
+                            <div className="calendar-wrapper border-t border-slate-50">
                                 {renderCalendar()}
                             </div>
                             
-                            <div className="py-3 text-center bg-slate-50/30">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">點擊日期記錄對局戰績</span>
+                            <div className="py-2.5 text-center bg-slate-50/50">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">TAP DATE TO ADD RECORD</span>
                             </div>
                         </section>
 
-                        {/* 對局歷史 */}
-                        <section className="space-y-3 px-1 pb-6">
-                            <div className="flex justify-between items-center">
-                                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">對局歷史流水</h3>
-                                <div className="h-[1px] flex-1 bg-slate-200/50 ml-4"></div>
-                            </div>
-                            <div className="space-y-3">
-                                {records.slice(0, 10).map(record => (
-                                    <div key={record.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all">
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-base ${record.type === 'win' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                        {/* 最近對局 */}
+                        <section className="space-y-3 pb-8">
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
+                                <span className="w-1 h-3 bg-emerald-600 rounded-full"></span> 最近紀錄明細
+                            </h3>
+                            <div className="space-y-2">
+                                {records.slice(0, 8).map(record => (
+                                    <div key={record.id} className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black ${record.type === 'win' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                                 {record.type === 'win' ? '贏' : '輸'}
                                             </div>
                                             <div>
-                                                <div className="flex items-center gap-2 mb-1 leading-none">
-                                                    <span className="text-[10px] font-black text-slate-400 tracking-tight">{record.date.substring(5).replace('-', '/')}</span>
-                                                    <span className="text-[9px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100 uppercase">{record.finalStakes}</span>
+                                                <div className="flex items-center gap-2 leading-none mb-1">
+                                                    <span className="text-[9px] font-black text-slate-400">{record.date.substring(5).replace('-', '/')}</span>
+                                                    <span className="text-[8px] font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-md border border-slate-100">{record.finalStakes}</span>
                                                 </div>
-                                                <p className={`text-lg font-black leading-none ${record.type === 'win' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                <p className={`text-base font-black leading-none ${record.type === 'win' ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                     {record.type === 'win' ? '+' : '-'}{record.amount.toLocaleString()} 
-                                                    <span className="text-[11px] text-slate-300 ml-2 font-bold tracking-tight italic underline decoration-amber-200/50">台費 ${record.tableFee}</span>
+                                                    <span className="text-[10px] text-slate-300 ml-2 font-bold italic tracking-tight underline decoration-slate-200">台費 ${record.tableFee}</span>
                                                 </p>
                                             </div>
                                         </div>
                                         <button onClick={() => deleteRecord(record.id)} className="p-2 text-slate-200 hover:text-rose-500 transition-colors">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                                         </button>
                                     </div>
                                 ))}
+                                {records.length === 0 && <div className="py-10 text-center text-slate-300 text-xs italic font-medium">尚未有對局紀錄</div>}
                             </div>
                         </section>
                     </main>
 
-                    {/* 抽屜錄入視窗 */}
+                    {/* 新增紀錄抽屜 */}
                     {isModalOpen && (
                         <div className="fixed inset-0 z-50 flex items-end justify-center">
-                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity" onClick={() => setIsModalOpen(false)}></div>
-                            <div className="relative bg-white w-full max-w-md rounded-t-[2.5rem] p-8 pb-12 shadow-2xl modal-animate border-t border-slate-100">
+                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => setIsModalOpen(false)}></div>
+                            <div className="relative bg-white w-full max-w-md rounded-t-[2.5rem] p-7 pb-12 shadow-2xl modal-animate border-t border-slate-100">
                                 <div className="flex justify-between items-center mb-8">
                                     <div>
-                                        <h2 className="text-2xl font-black text-slate-900 tracking-tight">紀錄這場戰報</h2>
-                                        <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest mt-1">Consistency is key</p>
+                                        <h2 className="text-2xl font-black text-slate-900 tracking-tight">紀錄戰報</h2>
+                                        <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest mt-1">Keep Winning 🀄</p>
                                     </div>
                                     <button onClick={() => setIsModalOpen(false)} className="bg-slate-100 p-2.5 rounded-full text-slate-400 font-bold hover:bg-rose-50 hover:text-rose-500 transition-colors">✕</button>
                                 </div>
 
                                 <div className="space-y-6">
-                                    <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl">
-                                        <button onClick={() => setFormData({...formData, type: 'win'})} className={`flex-1 py-4 rounded-xl font-black text-sm transition-all ${formData.type === 'win' ? 'bg-white text-emerald-600 shadow-md' : 'text-slate-400 opacity-60'}`}>贏錢 🎉</button>
-                                        <button onClick={() => setFormData({...formData, type: 'loss'})} className={`flex-1 py-4 rounded-xl font-black text-sm transition-all ${formData.type === 'loss' ? 'bg-white text-rose-600 shadow-md' : 'text-slate-400 opacity-60'}`}>輸錢 📉</button>
+                                    <div className="flex gap-2.5 p-1.5 bg-slate-100 rounded-2xl">
+                                        <button onClick={() => setFormData({...formData, type: 'win'})} className={`flex-1 py-4 rounded-xl font-black text-sm transition-all ${formData.type === 'win' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 opacity-60'}`}>贏錢 🎉</button>
+                                        <button onClick={() => setFormData({...formData, type: 'loss'})} className={`flex-1 py-4 rounded-xl font-black text-sm transition-all ${formData.type === 'loss' ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400 opacity-60'}`}>輸錢 📉</button>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">對局日期</label>
-                                            <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-emerald-500" />
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">日期</label>
+                                            <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full bg-slate-50 p-4 rounded-xl font-black border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-emerald-500" />
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">輸贏金額</label>
-                                            <input type="number" placeholder="0" value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-emerald-500 text-lg text-emerald-700 placeholder:text-slate-300" />
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">結算金額</label>
+                                            <input type="number" placeholder="0" value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} className="w-full bg-slate-50 p-4 rounded-xl font-black border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-emerald-500 text-lg text-emerald-700" />
                                         </div>
                                     </div>
 
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">底 / 台 倍率</label>
-                                        <div className="grid grid-cols-3 gap-2.5">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">選擇底台</label>
+                                        <div className="grid grid-cols-3 gap-2">
                                             {stakeOptions.map(opt => (
-                                                <button key={opt} onClick={() => setFormData({...formData, stakes: opt})} className={`py-3.5 rounded-xl font-black text-[11px] border transition-all ${formData.stakes === opt ? 'bg-slate-900 text-white border-slate-900 shadow-xl shadow-slate-200' : 'bg-white text-slate-400 border-slate-200 hover:border-emerald-200'}`}>{opt}</button>
+                                                <button key={opt} onClick={() => setFormData({...formData, stakes: opt})} className={`py-3.5 rounded-xl font-black text-xs border transition-all ${formData.stakes === opt ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>{opt}</button>
                                             ))}
                                         </div>
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">台費 (抽頭金額)</label>
-                                        <input type="number" placeholder="0" value={formData.tableFee} onChange={(e) => setFormData({...formData, tableFee: e.target.value})} className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-amber-500 placeholder:text-slate-300" />
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">台費金額</label>
+                                        <input type="number" placeholder="0" value={formData.tableFee} onChange={(e) => setFormData({...formData, tableFee: e.target.value})} className="w-full bg-slate-50 p-4 rounded-xl font-black border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-amber-500" />
                                     </div>
 
                                     <button 
                                         onClick={handleAddRecord} 
                                         disabled={!formData.amount} 
-                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-2xl shadow-emerald-200 active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
+                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl shadow-emerald-100 active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
                                     >
-                                        確認儲存戰報 🀄
+                                        儲存對局戰報 🀄
                                     </button>
                                 </div>
                             </div>
