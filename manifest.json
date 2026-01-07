@@ -1,0 +1,22 @@
+{
+  "name": "2026 麻將戰績紀錄 Pro",
+  "short_name": "麻將紀錄",
+  "description": "2026 年度個人麻將戰績雲端追蹤器",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#064e3b",
+  "theme_color": "#064e3b",
+  "icons": [
+    {
+      "src": "mahjong.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "mahjong.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
