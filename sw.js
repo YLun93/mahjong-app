@@ -1,7 +1,10 @@
-const CACHE_NAME = 'mahjong-v3-cache';
+const CACHE_NAME = 'mahjong-v3';
+
+// 僅快取必要的 HTML
 const ASSETS = [
   './',
-  './index.html'
+  './index.html',
+  './manifest.json'
 ];
 
 self.addEventListener('install', (e) => {
@@ -10,11 +13,9 @@ self.addEventListener('install', (e) => {
   );
 });
 
+// 網路優先策略：有網路先抓網路，沒網路才用快取
 self.addEventListener('fetch', (e) => {
-  // 僅快取本地資源，跳過外部 CDN 以避免 CORS 錯誤
-  if (e.request.url.includes('http')) {
-    e.respondWith(
-      caches.match(e.request).then((res) => res || fetch(e.request))
-    );
-  }
+  e.respondWith(
+    fetch(e.request).catch(() => caches.match(e.request))
+  );
 });
