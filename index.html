@@ -9,13 +9,10 @@
     <link rel="apple-touch-icon" href="mahjong.png">
     
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
-
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -52,15 +49,24 @@
 
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(e => console.log("SW error:", e));
+                navigator.serviceWorker.register('./sw.js').catch(e => console.log("SW Status: Not found, ignoring."));
             });
         }
     </script>
 
     <script type="text/babel">
-        // 修正：從 LucideReact 中提取圖示
-        const { ChevronLeft, ChevronRight, Plus, Trash2, TrendingUp, TrendingDown, X, Cloud, CloudOff } = lucide;
         const { useState, useEffect, useMemo } = React;
+
+        // 自定義 SVG 圖示，避免依賴 Lucide 報錯
+        const Icons = {
+            ChevronLeft: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>,
+            ChevronRight: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>,
+            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>,
+            Trash: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>,
+            Win: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.5 4.5L21.75 7.5M21.75 7.5V12m0-4.5H17.25" /></svg>,
+            Loss: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6L9 12.75l4.5-4.5L21.75 16.5M21.75 16.5v-4.5m0 4.5H17.25" /></svg>,
+            X: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        };
 
         const PRESET_STAKES = ["30/10", "50/20", "100/20", "100/30"];
 
@@ -141,17 +147,15 @@
             const daysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
             const firstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
 
-            if (loading) return <div className="h-screen flex items-center justify-center bg-emerald-900 text-white font-black italic">PRO DATA LOADING...</div>;
+            if (loading) return <div className="h-screen flex items-center justify-center bg-emerald-900 text-white font-black">載入中...</div>;
 
             return (
                 <div className="h-screen max-h-screen flex flex-col bg-slate-100 text-slate-900 overflow-hidden">
-                    <div className="bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-900 text-white pt-6 pb-6 px-5 shadow-xl shrink-0 rounded-b-[2.5rem]">
+                    <div className="bg-gradient-to-br from-emerald-900 to-teal-900 text-white pt-6 pb-6 px-5 shadow-xl shrink-0 rounded-b-[2.5rem]">
                         <div className="flex justify-between items-end mb-4">
                             <div>
-                                <p className="text-[10px] opacity-60 font-black flex items-center gap-1">
-                                    {user ? <Cloud size={10} /> : <CloudOff size={10} />} 2026 MAHJONG PRO
-                                </p>
-                                <h1 className="text-2xl font-black italic tracking-tighter">年度戰績</h1>
+                                <p className="text-[10px] opacity-60 font-black tracking-widest uppercase">2026 MAHJONG PRO</p>
+                                <h1 className="text-2xl font-black italic">年度戰績</h1>
                             </div>
                             <div className="text-right">
                                 <p className="text-[10px] opacity-60 font-bold">NET PROFIT</p>
@@ -161,17 +165,17 @@
                             </div>
                         </div>
                         <div className="grid grid-cols-3 gap-3">
-                            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-2 border border-white/10 text-center">
-                                <span className="text-[9px] opacity-60 font-bold block">贏錢</span>
-                                <span className="font-black text-xs text-emerald-300">+{stats.totalWin.toLocaleString()}</span>
+                            <div className="bg-white/10 rounded-2xl p-2 text-center border border-white/10">
+                                <span className="text-[9px] opacity-60 block">贏</span>
+                                <span className="font-black text-emerald-300">+{stats.totalWin.toLocaleString()}</span>
                             </div>
-                            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-2 border border-white/10 text-center">
-                                <span className="text-[9px] opacity-60 font-bold block">輸錢</span>
-                                <span className="font-black text-xs text-red-300">-{stats.totalLoss.toLocaleString()}</span>
+                            <div className="bg-white/10 rounded-2xl p-2 text-center border border-white/10">
+                                <span className="text-[9px] opacity-60 block">輸</span>
+                                <span className="font-black text-red-300">-{stats.totalLoss.toLocaleString()}</span>
                             </div>
-                            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-2 border border-white/10 text-center">
-                                <span className="text-[9px] opacity-60 font-bold block">台費</span>
-                                <span className="font-black text-xs text-amber-200">{stats.totalFee.toLocaleString()}</span>
+                            <div className="bg-white/10 rounded-2xl p-2 text-center border border-white/10">
+                                <span className="text-[9px] opacity-60 block">台費</span>
+                                <span className="font-black text-amber-200">{stats.totalFee.toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
@@ -180,9 +184,9 @@
                         <div className="bg-white rounded-[2rem] shadow-sm p-4 shrink-0">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="font-black text-slate-700">{currentMonth.getFullYear()} - {currentMonth.getMonth() + 1}月</h2>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))} className="text-slate-400"><ChevronLeft/></button>
-                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))} className="text-slate-400"><ChevronRight/></button>
+                                <div className="flex gap-4">
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))} className="text-slate-400"><Icons.ChevronLeft/></button>
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))} className="text-slate-400"><Icons.ChevronRight/></button>
                                 </div>
                             </div>
                             <div className="calendar-grid">
@@ -208,21 +212,23 @@
                         <div className="flex-1 flex flex-col min-h-0 bg-white rounded-[2rem] shadow-sm p-5 overflow-hidden">
                             <div className="flex justify-between items-center mb-4 shrink-0">
                                 <h3 className="font-black text-sm italic">{selectedDate.getMonth() + 1}.{selectedDate.getDate()} 紀錄</h3>
-                                <button onClick={() => setIsModalOpen(true)} className="bg-emerald-700 text-white px-4 py-2 rounded-xl text-[11px] font-black">+ 新增</button>
+                                <button onClick={() => setIsModalOpen(true)} className="bg-emerald-700 text-white px-4 py-2 rounded-xl text-[11px] font-black flex items-center gap-1 shadow-md">
+                                    <Icons.Plus /> 新增
+                                </button>
                             </div>
                             <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar">
-                                {dayRecords.map(rec => (
+                                {dayRecords.length === 0 ? <div className="text-center text-slate-300 py-10 text-xs font-bold">今日無紀錄</div> : dayRecords.map(rec => (
                                     <div key={rec.id} className="bg-slate-50 p-4 rounded-2xl flex items-center justify-between border border-slate-100">
                                         <div className="flex items-center gap-4">
                                             <div className={`p-2 rounded-xl ${rec.type === 'win' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
-                                                {rec.type === 'win' ? <TrendingUp size={18}/> : <TrendingDown size={18}/>}
+                                                {rec.type === 'win' ? <Icons.Win /> : <Icons.Loss />}
                                             </div>
                                             <div>
                                                 <div className="font-black text-lg">{rec.type === 'win' ? '+' : '-'}{rec.amount} <span className="text-[10px] text-slate-400 font-normal">{rec.stake}</span></div>
                                                 <div className="text-[10px] text-slate-400">台費: ${rec.tableFee}</div>
                                             </div>
                                         </div>
-                                        <button onClick={() => handleDeleteRecord(rec.id)} className="text-slate-300"><Trash2 size={18} /></button>
+                                        <button onClick={() => handleDeleteRecord(rec.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Icons.Trash /></button>
                                     </div>
                                 ))}
                             </div>
@@ -230,34 +236,34 @@
                     </div>
 
                     {isModalOpen && (
-                        <div className="fixed inset-0 z-50 flex items-end justify-center">
+                        <div className="fixed inset-0 z-50 flex items-end justify-center p-4">
                             <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-                            <div className="relative bg-white w-full max-w-md rounded-t-[3rem] p-8 animate-in slide-in-from-bottom duration-300">
+                            <div className="relative bg-white w-full max-w-md rounded-[2.5rem] p-8 animate-in slide-in-from-bottom duration-300">
                                 <div className="flex justify-between items-center mb-6">
-                                    <h2 className="text-xl font-black italic">NEW RECORD</h2>
-                                    <button onClick={() => setIsModalOpen(false)}><X size={20}/></button>
+                                    <h2 className="text-xl font-black italic">建立戰績</h2>
+                                    <button onClick={() => setIsModalOpen(false)} className="text-slate-400"><Icons.X /></button>
                                 </div>
                                 <div className="space-y-6">
                                     <div className="grid grid-cols-5 gap-2">
                                         {[...PRESET_STAKES, "其他"].map(s => (
-                                            <button key={s} onClick={() => setStake(s)} className={`py-2 rounded-lg text-[10px] border-2 font-black ${stake === s ? 'border-emerald-700 bg-emerald-50 text-emerald-800' : 'border-slate-50 text-slate-400'}`}>{s}</button>
+                                            <button key={s} onClick={() => setStake(s)} className={`py-2 rounded-lg text-[10px] border-2 font-black transition-all ${stake === s ? 'border-emerald-700 bg-emerald-50 text-emerald-800' : 'border-slate-50 text-slate-400'}`}>{s}</button>
                                         ))}
                                     </div>
                                     <div className="flex gap-3">
-                                        <button onClick={() => setIsWin(true)} className={`flex-1 py-4 rounded-2xl font-black ${isWin ? 'bg-emerald-50 border-2 border-emerald-600 text-emerald-700' : 'bg-slate-50 text-slate-400'}`}>贏 (+)</button>
-                                        <button onClick={() => setIsWin(false)} className={`flex-1 py-4 rounded-2xl font-black ${!isWin ? 'bg-red-50 border-2 border-red-600 text-red-700' : 'bg-slate-50 text-slate-400'}`}>輸 (-)</button>
+                                        <button onClick={() => setIsWin(true)} className={`flex-1 py-4 rounded-2xl font-black transition-all ${isWin ? 'bg-emerald-50 border-2 border-emerald-600 text-emerald-700 shadow-inner' : 'bg-slate-50 text-slate-400'}`}>贏 (+)</button>
+                                        <button onClick={() => setIsWin(false)} className={`flex-1 py-4 rounded-2xl font-black transition-all ${!isWin ? 'bg-red-50 border-2 border-red-600 text-red-700 shadow-inner' : 'bg-slate-50 text-slate-400'}`}>輸 (-)</button>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-slate-50 p-4 rounded-2xl">
+                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                                             <label className="text-[10px] font-black text-slate-400 block mb-1">金額</label>
                                             <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-transparent text-2xl font-black outline-none" />
                                         </div>
-                                        <div className="bg-slate-50 p-4 rounded-2xl">
+                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                                             <label className="text-[10px] font-black text-slate-400 block mb-1">台費</label>
                                             <input type="number" inputMode="numeric" value={tableFee} onChange={(e) => setTableFee(e.target.value)} className="w-full bg-transparent text-2xl font-black outline-none" />
                                         </div>
                                     </div>
-                                    <button onClick={handleAddRecord} className="w-full py-4 bg-emerald-700 text-white rounded-2xl font-black shadow-lg">儲存紀錄</button>
+                                    <button onClick={handleAddRecord} className="w-full py-4 bg-emerald-700 text-white rounded-2xl font-black shadow-lg active:scale-95 transition-transform uppercase tracking-widest">儲存至雲端</button>
                                 </div>
                             </div>
                         </div>
