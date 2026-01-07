@@ -12,21 +12,36 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;600;800&family=Noto+Sans+TC:wght@400;700;900&display=swap');
         
-        :root {
-            --emerald-primary: #059669;
-            --rose-primary: #e11d48;
-        }
-
         body {
             font-family: 'SF Pro Display', 'Noto Sans TC', sans-serif;
             -webkit-tap-highlight-color: transparent;
             background-color: #f1f5f9;
             color: #1e293b;
+            margin: 0;
+            padding: 0;
         }
 
-        .calendar-grid {
+        /* 核心日曆佈局修復 */
+        .calendar-container {
             display: grid;
             grid-template-cols: repeat(7, 1fr);
+            width: 100%;
+        }
+
+        .calendar-cell {
+            aspect-ratio: 1 / 1.1; /* 保持格子比例 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding-top: 8px;
+            border-right: 1px solid #f1f5f9;
+            border-bottom: 1px solid #f1f5f9;
+            position: relative;
+        }
+
+        .calendar-cell:nth-child(7n) {
+            border-right: none;
         }
 
         .safe-bottom {
@@ -40,7 +55,7 @@
             -webkit-appearance: none;
         }
 
-        /* 順滑動畫 */
+        /* 彈窗動畫 */
         .modal-enter {
             animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -63,7 +78,7 @@
 <body>
     <div id="root"></div>
 
-    <!-- Firebase SDK 預加載 -->
+    <!-- Firebase 模組載入 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -79,7 +94,6 @@
             measurementId: "G-410BN7WGZY"
         };
 
-        // 將 Firebase 實例掛載到 window，解決 Babel 轉換問題
         const app = initializeApp(firebaseConfig);
         window.fb = {
             db: getFirestore(app),
@@ -89,7 +103,8 @@
         };
     </script>
 
-    <script type="text/babel" data-presets="react">
+    <!-- React 應用邏輯 -->
+    <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
         const App = () => {
@@ -110,16 +125,15 @@
             const stakeOptions = ['30/10', '50/20', '100/20', '100/30', '其他'];
 
             useEffect(() => {
-                // 等待 Firebase 初始化
-                const interval = setInterval(() => {
+                const checkFirebase = setInterval(() => {
                     if (window.fb) {
-                        clearInterval(interval);
+                        clearInterval(checkFirebase);
                         const { auth, signInAnonymously, onAuthStateChanged } = window.fb;
                         signInAnonymously(auth).catch(console.error);
-                        onAuthStateChanged(auth, setUser);
+                        onAuthStateChanged(auth, (u) => setUser(u));
                     }
                 }, 100);
-                return () => clearInterval(interval);
+                return () => clearInterval(checkFirebase);
             }, []);
 
             useEffect(() => {
@@ -184,7 +198,7 @@
 
                 const days = [];
                 for (let i = 0; i < startDay; i++) {
-                    days.push(<div key={`e-${i}`} className="h-14 bg-slate-50/20 border-b border-r border-slate-100"></div>);
+                    days.push(<div key={`empty-${i}`} className="calendar-cell bg-slate-50/20"></div>);
                 }
 
                 for (let d = 1; d <= totalDays; d++) {
@@ -199,9 +213,9 @@
                         <div 
                             key={d} 
                             onClick={() => { setFormData({ ...formData, date: dateStr }); setIsModalOpen(true); }}
-                            className={`h-14 border-b border-r border-slate-100 flex flex-col items-center justify-start pt-1.5 cursor-pointer transition-all active:scale-90 relative ${isWeekend ? 'bg-slate-50/50' : 'bg-white'} hover:bg-emerald-50`}
+                            className={`calendar-cell cursor-pointer transition-all active:scale-90 ${isWeekend ? 'bg-slate-50/40' : 'bg-white'} hover:bg-emerald-50`}
                         >
-                            <span className={`text-[10px] font-bold mb-0.5 ${isToday ? 'bg-emerald-600 text-white w-4.5 h-4.5 rounded-md flex items-center justify-center shadow-lg shadow-emerald-200' : isWeekend ? 'text-slate-500' : 'text-slate-400'}`}>
+                            <span className={`text-[10px] font-bold mb-1 w-5 h-5 flex items-center justify-center transition-colors ${isToday ? 'bg-emerald-600 text-white rounded-md shadow-md' : isWeekend ? 'text-slate-500' : 'text-slate-400'}`}>
                                 {d}
                             </span>
                             {dayProfit !== 0 && (
@@ -210,9 +224,7 @@
                                 </div>
                             )}
                             {dayRecords.length > 0 && (
-                                <div className="absolute bottom-1 flex gap-0.5">
-                                    <div className="w-0.5 h-0.5 bg-amber-400 rounded-full"></div>
-                                </div>
+                                <div className="absolute bottom-1 w-1 h-1 bg-amber-400 rounded-full"></div>
                             )}
                         </div>
                     );
@@ -221,29 +233,29 @@
             };
 
             return (
-                <div className="min-h-screen flex flex-col max-w-md mx-auto border-x border-slate-200 safe-bottom">
+                <div className="min-h-screen flex flex-col max-w-md mx-auto bg-[#F8FAFC] border-x border-slate-200 safe-bottom">
                     {/* Header */}
-                    <header className="bg-white/80 blur-bg px-6 py-4 flex items-center border-b border-slate-100 sticky top-0 z-30">
-                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center text-white text-xl shadow-lg shadow-emerald-100 mr-3">🀄</div>
+                    <header className="bg-white/90 blur-bg px-6 py-4 flex items-center border-b border-slate-100 sticky top-0 z-30">
+                        <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center text-white text-lg shadow-lg mr-3 font-bold">🀄</div>
                         <div className="flex-1">
-                            <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">2026 麻將戰報</h1>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Personal Record Pro</p>
+                            <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none">2026 麻將戰報</h1>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Professional Tracker</p>
                         </div>
                     </header>
 
-                    <main className="flex-1 p-4 space-y-4">
-                        {/* 數據摘要 - 優化排版 */}
+                    <main className="flex-1 p-4 space-y-4 overflow-y-auto">
+                        {/* 數據摘要卡片 */}
                         <section className="bg-white rounded-2xl p-5 shadow-soft border border-slate-100">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{currentMonth.getMonth() + 1}月結算收益</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{currentMonth.getMonth() + 1}月淨收益</p>
                                     <h2 className={`text-3xl font-black tracking-tighter ${monthlyNet >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                                         ${monthlyNet.toLocaleString()}
                                     </h2>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">2026 年度累計</p>
-                                    <p className={`text-xl font-black ${yearlyNet >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">2026 年度</p>
+                                    <p className={`text-lg font-black ${yearlyNet >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                                         ${yearlyNet.toLocaleString()}
                                     </p>
                                 </div>
@@ -251,58 +263,62 @@
                             
                             <div className="grid grid-cols-3 gap-2">
                                 {[
-                                    { label: '本月贏', val: `+${stats.monthly.won}`, color: 'text-emerald-600', bg: 'bg-emerald-50/30' },
-                                    { label: '本月輸', val: `-${stats.monthly.lost}`, color: 'text-rose-500', bg: 'bg-rose-50/30' },
+                                    { label: '當月贏', val: `+${stats.monthly.won}`, color: 'text-emerald-600', bg: 'bg-emerald-50/30' },
+                                    { label: '當月輸', val: `-${stats.monthly.lost}`, color: 'text-rose-500', bg: 'bg-rose-50/30' },
                                     { label: '台費', val: `${stats.monthly.fees}`, color: 'text-amber-500', bg: 'bg-amber-50/30' }
                                 ].map((item, idx) => (
-                                    <div key={idx} className={`${item.bg} p-2 rounded-xl text-center`}>
+                                    <div key={idx} className={`${item.bg} p-2 rounded-xl text-center border border-white`}>
                                         <p className="text-[9px] font-bold text-slate-500 mb-0.5">{item.label}</p>
-                                        <p className={`text-[12px] font-black ${item.color}`}>{item.val}</p>
+                                        <p className={`text-[11px] font-black ${item.color}`}>{item.val}</p>
                                     </div>
                                 ))}
                             </div>
                         </section>
 
-                        {/* 月曆 - 優化高度 */}
+                        {/* 月曆區塊 */}
                         <section className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
                             <div className="px-5 py-3 flex items-center justify-between border-b border-slate-50">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-emerald-600 font-black text-xs">{currentMonth.getFullYear()}年</span>
-                                    <span className="text-slate-900 font-black text-lg">{currentMonth.getMonth() + 1}月</span>
+                                <div className="flex items-center gap-2 font-black">
+                                    <span className="text-emerald-600 text-xs">{currentMonth.getFullYear()}年</span>
+                                    <span className="text-slate-900 text-lg">{currentMonth.getMonth() + 1}月</span>
                                 </div>
                                 <div className="flex bg-slate-100 p-1 rounded-lg">
-                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-1 text-slate-400 active:text-emerald-600 transition-colors">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-1.5 text-slate-400 active:text-emerald-600">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                                     </button>
-                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-1 text-slate-400 active:text-emerald-600 transition-colors">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-1.5 text-slate-400 active:text-emerald-600">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                                     </button>
                                 </div>
                             </div>
                             
-                            <div className="calendar-grid text-center text-[9px] font-black text-slate-300 py-2 uppercase tracking-widest bg-slate-50/30">
+                            <div className="calendar-container text-center text-[9px] font-black text-slate-300 py-2 uppercase tracking-widest bg-slate-50/30 border-b border-slate-100">
                                 <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
                             </div>
                             
-                            <div className="calendar-grid">
+                            <div className="calendar-container">
                                 {renderCalendar()}
+                            </div>
+                            
+                            <div className="py-2 text-center bg-slate-50/50">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] italic">點擊日期記錄對局</span>
                             </div>
                         </section>
 
-                        {/* 歷史流水 - 精簡化 */}
-                        <section className="space-y-2 pb-4">
+                        {/* 明細清單 */}
+                        <section className="space-y-2 pb-6">
                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">對局明細</h3>
-                            <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1">
-                                {records.slice(0, 10).map(record => (
+                            <div className="space-y-2">
+                                {records.slice(0, 8).map(record => (
                                     <div key={record.id} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold ${record.type === 'win' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold ${record.type === 'win' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                                 {record.type === 'win' ? '贏' : '輸'}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 leading-none mb-1">
                                                     <span className="text-[9px] font-black text-slate-400">{record.date.substring(5).replace('-', '/')}</span>
-                                                    <span className="text-[9px] font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border">{record.finalStakes}</span>
+                                                    <span className="text-[8px] font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border">{record.finalStakes}</span>
                                                 </div>
                                                 <p className={`text-base font-black leading-none ${record.type === 'win' ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                     {record.type === 'win' ? '+' : '-'}{record.amount.toLocaleString()} 
@@ -319,35 +335,35 @@
                         </section>
                     </main>
 
-                    {/* 底部新增視窗 */}
+                    {/* 新增紀錄抽屜 */}
                     {isModalOpen && (
                         <div className="fixed inset-0 z-50 flex items-end justify-center">
                             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => setIsModalOpen(false)}></div>
-                            <div className="relative bg-white w-full max-w-md rounded-t-3xl p-6 pb-10 shadow-2xl modal-enter border-t border-slate-100">
+                            <div className="relative bg-white w-full max-w-md rounded-t-[2rem] p-6 pb-10 shadow-2xl modal-enter border-t border-slate-100">
                                 <div className="flex justify-between items-center mb-6">
                                     <h2 className="text-xl font-black text-slate-900 tracking-tight">紀錄對局</h2>
                                     <button onClick={() => setIsModalOpen(false)} className="bg-slate-100 p-2 rounded-full text-slate-400 font-bold">✕</button>
                                 </div>
 
                                 <div className="space-y-5">
-                                    <div className="flex gap-2 p-1.5 bg-slate-100 rounded-xl">
+                                    <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
                                         <button onClick={() => setFormData({...formData, type: 'win'})} className={`flex-1 py-3 rounded-lg font-black text-sm transition-all ${formData.type === 'win' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 opacity-60'}`}>贏錢 🎉</button>
                                         <button onClick={() => setFormData({...formData, type: 'loss'})} className={`flex-1 py-3 rounded-lg font-black text-sm transition-all ${formData.type === 'loss' ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400 opacity-60'}`}>輸錢 📉</button>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">日期</label>
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">對局日期</label>
                                             <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full bg-slate-50 p-3 rounded-xl font-bold border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-emerald-500" />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">對局金額</label>
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">對局金額</label>
                                             <input type="number" placeholder="0" value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} className="w-full bg-slate-50 p-3 rounded-xl font-black border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-emerald-500 text-lg" />
                                         </div>
                                     </div>
 
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase px-1 tracking-widest">底 / 台</label>
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">底 / 台</label>
                                         <div className="grid grid-cols-3 gap-2">
                                             {stakeOptions.map(opt => (
                                                 <button key={opt} onClick={() => setFormData({...formData, stakes: opt})} className={`py-2.5 rounded-xl font-black text-xs border transition-all ${formData.stakes === opt ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>{opt}</button>
@@ -356,7 +372,7 @@
                                     </div>
 
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase px-1 tracking-widest">台費 (抽頭)</label>
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">台費 (抽頭)</label>
                                         <input type="number" placeholder="0" value={formData.tableFee} onChange={(e) => setFormData({...formData, tableFee: e.target.value})} className="w-full bg-slate-50 p-3 rounded-xl font-bold border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-amber-500" />
                                     </div>
 
@@ -365,7 +381,7 @@
                                         disabled={!formData.amount} 
                                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-xl font-black text-lg shadow-xl shadow-emerald-100 active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
                                     >
-                                        確認儲存 🀄
+                                        儲存並發財 🀄
                                     </button>
                                 </div>
                             </div>
