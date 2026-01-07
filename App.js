@@ -11,7 +11,7 @@ import {
   ChevronLeft, ChevronRight, Trash2, X, Award, Coins
 } from 'lucide-react';
 
-// --- Firebase 配置 ---
+// --- Firebase 配置 (已更新為您的專屬配置) ---
 const firebaseConfig = {
   apiKey: "AIzaSyAUPqdwv4iJ6ebrkdKZNcZpwWBXUg2mQsk",
   authDomain: "mahjong-app-8aacb.firebaseapp.com",
@@ -21,6 +21,11 @@ const firebaseConfig = {
   appId: "1:344119682978:web:b571898505e28f8dc2b4fb",
   measurementId: "G-410BN7WGZY"
 };
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'mahjong-2026-v3';
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -153,7 +158,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans max-w-md mx-auto flex flex-col border-x border-slate-200">
-      {/* 標題列 - 優化圓角 */}
+      {/* 標題列 */}
       <header className="bg-white/90 backdrop-blur-md px-6 py-5 flex justify-start items-center border-b border-slate-100 sticky top-0 z-20">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-100">
@@ -168,7 +173,7 @@ const App = () => {
 
       <main className="flex-1 overflow-y-auto p-4 space-y-5 pb-10">
         
-        {/* 收益摘要卡片 - 圓角改為 2xl */}
+        {/* 收益摘要卡片 */}
         <div className="bg-white rounded-2xl p-6 shadow-xl shadow-slate-200/40 border border-slate-100 space-y-6 relative overflow-hidden">
           <div className="flex justify-between items-start relative z-10">
             <div>
@@ -200,7 +205,7 @@ const App = () => {
           <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-emerald-50 rounded-full blur-3xl opacity-40"></div>
         </div>
 
-        {/* 月曆 - 圓角改為 2xl */}
+        {/* 月曆 */}
         <section className="bg-white rounded-2xl shadow-xl shadow-slate-200/40 border border-slate-100 overflow-hidden">
           <div className="bg-white px-6 py-4 flex items-center justify-between border-b border-slate-50">
             <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
@@ -226,7 +231,7 @@ const App = () => {
           </div>
         </section>
 
-        {/* 最近紀錄 - 圓角改為 2xl */}
+        {/* 最近紀錄 */}
         <section className="space-y-3 px-1">
           <div className="flex justify-between items-center">
             <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">對局歷史</h3>
@@ -259,7 +264,7 @@ const App = () => {
         </section>
       </main>
 
-      {/* 新增對局彈窗 - 優化頂部圓角 */}
+      {/* 新增對局彈窗 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center px-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity" onClick={() => setIsModalOpen(false)}></div>
