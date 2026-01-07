@@ -2,240 +2,267 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>2026麻將</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2026 麻將戰績紀錄 Pro</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#064e3b">
+    <link rel="apple-touch-icon" href="mahjong.png">
     
-    <!-- iOS PWA 核心設定 -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="2026麻將">
-    
-    <!-- 引用圖示檔案 -->
-    <link rel="apple-touch-icon" href="icon.png">
-    <link rel="icon" href="icon.png">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <style>
-        body { 
-            background-color: black; 
-            color: white; 
-            -webkit-tap-highlight-color: transparent; 
-            font-family: -apple-system, system-ui, sans-serif; 
-            margin: 0;
-            user-select: none;
-        }
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
-        .safe-area-inset { padding-top: env(safe-area-inset-top); }
-        
-        /* 輸入框樣式微調 */
-        input, textarea { 
-            background: #121214; 
-            border: 1px solid #27272a; 
-            border-radius: 1.25rem; 
-            padding: 1rem; 
-            color: white; 
-            outline: none; 
-            width: 100%;
-            font-size: 1rem;
-            user-select: auto;
-        }
-        input:focus { border-color: #f97316; }
-        
-        /* 數據看板字體微縮 */
-        .stat-label { font-size: 0.7rem; font-weight: 800; color: #52525b; text-transform: uppercase; letter-spacing: 0.05em; }
-        .stat-value { font-size: 1.5rem; font-weight: 900; line-height: 1.1; margin-top: 0.15rem; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+        .custom-scrollbar::-webkit-scrollbar { width: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .calendar-grid { display: grid; grid-template-cols: repeat(7, 1fr); gap: 4px; }
     </style>
 </head>
-<body>
-    <div id="app" class="safe-area-inset">
-        <div class="h-screen flex items-center justify-center">
-            <div class="text-orange-500 font-bold animate-pulse tracking-widest text-lg uppercase">Loading...</div>
-        </div>
-    </div>
+<body class="bg-slate-100 overflow-hidden">
+    <div id="root"></div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyAJq5ty6AuCiooCEEAaK5rgmAsr4m6CuxY",
-            authDomain: "mahjong-2026-8fc29.firebaseapp.com",
-            projectId: "mahjong-2026-8fc29",
-            storageBucket: "mahjong-2026-8fc29.firebasestorage.app",
-            messagingSenderId: "140721320236",
-            appId: "1:140721320236:web:71e3c4ee9ba293cfac7c89",
-            measurementId: "G-T703SJZV5W"
+            apiKey: "AIzaSyAUPqdwv4iJ6ebrkdKZNcZpwWBXUg2mQsk",
+            authDomain: "mahjong-app-8aacb.firebaseapp.com",
+            projectId: "mahjong-app-8aacb",
+            storageBucket: "mahjong-app-8aacb.firebasestorage.app",
+            messagingSenderId: "344119682978",
+            appId: "1:344119682978:web:b571898505e28f8dc2b4fb",
+            measurementId: "G-410BN7WGZY"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const appIdPrefix = "mahjong-tracker-2026";
 
-        let user = null;
-        let records = {};
-        let currentDate = new Date(2026, 0, 1);
-        let selectedDate = null;
+        window.fb = { auth, db, appIdPrefix, signInAnonymously, onAuthStateChanged, collection, doc, addDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp };
 
-        async function init() {
-            onAuthStateChanged(auth, async (u) => {
-                if (!u) { 
-                    try { await signInAnonymously(auth); } catch(e) { console.error(e); }
-                } else { 
-                    user = u;
-                    const q = collection(db, 'records_v1', user.uid, 'days');
-                    onSnapshot(q, (snapshot) => {
-                        records = {};
-                        snapshot.forEach(doc => { records[doc.id] = doc.data(); });
-                        render();
-                    });
-                }
+        // 註冊 Service Worker (PWA 關鍵)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(console.error);
             });
         }
-
-        window.render = function() {
-            const appEl = document.getElementById('app');
-            const stats = calculateStats();
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth();
-            const monthName = new Intl.DateTimeFormat('zh-TW', { month: 'long' }).format(currentDate);
-
-            appEl.innerHTML = `
-                <div class="max-w-md mx-auto p-4 pt-6">
-                    <header class="mb-8 border-b border-zinc-900 pb-6">
-                        <div class="mb-6">
-                            <h1 class="text-2xl font-black text-white leading-none">2026 <span class="text-orange-500">麻將</span></h1>
-                            <p class="text-[11px] text-orange-500/80 font-bold tracking-[0.3em] mt-2 uppercase italic">自摸就自摸還槓上</p>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3 mb-3">
-                            ${statBox('總贏錢', stats.w, 'text-green-500')}
-                            ${statBox('總輸錢', stats.l, 'text-red-500')}
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            ${statBox('台費', stats.f, 'text-zinc-500')}
-                            ${statBox('淨利', stats.n, 'text-orange-500', true)}
-                        </div>
-                    </header>
-
-                    <div class="bg-zinc-950 rounded-[2rem] border border-zinc-900 overflow-hidden shadow-2xl">
-                        <div class="flex items-center justify-between px-6 py-4 bg-zinc-900/20 border-b border-zinc-900">
-                            <span class="font-black text-base text-zinc-100 tracking-wider">${year} / ${monthName}</span>
-                            <div class="flex gap-4">
-                                <button onclick="changeMonth(-1)" class="p-1"><i data-lucide="chevron-left" class="text-zinc-500 w-5 h-5"></i></button>
-                                <button onclick="changeMonth(1)" class="p-1"><i data-lucide="chevron-right" class="text-zinc-500 w-5 h-5"></i></button>
-                            </div>
-                        </div>
-                        <div class="calendar-grid text-[9px] font-bold text-zinc-800 py-2 border-b border-zinc-900 text-center">
-                            <div>SUN</div><div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div>
-                        </div>
-                        <div class="calendar-grid">${generateCalendarDays(year, month)}</div>
-                    </div>
-                </div>
-                ${selectedDate ? renderModal() : ''}
-            `;
-            lucide.createIcons();
-        };
-
-        function statBox(label, val, color, highlight = false) {
-            return `
-                <div class="p-4 rounded-2xl bg-zinc-900 border ${highlight ? 'border-orange-500/40 shadow-xl' : 'border-zinc-800'}">
-                    <p class="stat-label">${label}</p>
-                    <p class="stat-value ${color} truncate tracking-tighter">${val.toLocaleString()}</p>
-                </div>
-            `;
-        }
-
-        function generateCalendarDays(y, m) {
-            const days = [];
-            const total = new Date(y, m + 1, 0).getDate();
-            const offset = new Date(y, m, 1).getDay();
-            for (let i = 0; i < offset; i++) days.push(`<div class="h-14 border border-zinc-900/30 bg-black"></div>`);
-            for (let d = 1; d <= total; d++) {
-                const dStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                const r = records[dStr] || {};
-                const isToday = new Date().toLocaleDateString('en-CA') === dStr;
-                days.push(`
-                    <div onclick="openModal('${dStr}')" class="h-14 border border-zinc-900/30 p-1.5 active:bg-zinc-800 transition-all relative">
-                        <div class="flex justify-between">
-                            <span class="text-[10px] font-bold ${isToday ? 'text-orange-500' : 'text-zinc-700'}">${d}</span>
-                            ${r.memo ? '<div class="w-1 h-1 bg-orange-500 rounded-full shadow-[0_0_5px_#f97316]"></div>' : ''}
-                        </div>
-                        ${r.amount ? `<div class="text-[8px] font-bold mt-1 truncate ${r.amount > 0 ? 'text-green-500' : 'text-red-500'}">${r.amount > 0 ? '+' : ''}${r.amount}</div>` : ''}
-                    </div>
-                `);
-            }
-            return days.join('');
-        }
-
-        function calculateStats() {
-            let w = 0, l = 0, f = 0;
-            Object.values(records).forEach(r => {
-                if (r.deleted) return;
-                const amt = Number(r.amount) || 0;
-                const fee = Number(r.tableFee) || 0;
-                if (amt > 0) w += amt; else l += Math.abs(amt);
-                f += fee;
-            });
-            return { w, l, f, n: w - l - f };
-        }
-
-        window.changeMonth = (dir) => { currentDate.setMonth(currentDate.getMonth() + dir); render(); };
-        window.openModal = (dStr) => { selectedDate = dStr; render(); };
-        window.closeModal = () => { selectedDate = null; render(); };
-        window.saveData = async () => {
-            const btn = document.getElementById('save-btn');
-            btn.innerText = "Saving...";
-            btn.disabled = true;
-            try {
-                await setDoc(doc(db, 'records_v1', user.uid, 'days', selectedDate), {
-                    amount: Number(document.getElementById('m_amount').value) || 0,
-                    tableFee: Number(document.getElementById('m_fee').value) || 0,
-                    memo: document.getElementById('m_memo').value,
-                    updatedAt: new Date().toISOString(),
-                    deleted: false
-                });
-                closeModal();
-            } catch(e) {
-                alert("Error!");
-                btn.innerText = "儲存戰報";
-                btn.disabled = false;
-            }
-        };
-
-        function renderModal() {
-            const r = records[selectedDate] || { amount: 0, tableFee: 0, memo: '' };
-            return `
-                <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/98 backdrop-blur-xl">
-                    <div class="bg-zinc-950 rounded-[2.5rem] w-full max-w-sm border border-zinc-800 shadow-2xl overflow-hidden p-7 animate-in zoom-in duration-200">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="font-black text-xl text-orange-500 tracking-tighter italic">${selectedDate}</h3>
-                            <button onclick="closeModal()" class="text-3xl text-zinc-700 hover:text-white">&times;</button>
-                        </div>
-                        <div class="space-y-6">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="space-y-2">
-                                    <label class="text-[9px] font-black text-zinc-600 uppercase tracking-widest">贏 / 輸</label>
-                                    <input id="m_amount" type="number" inputmode="numeric" class="font-black text-lg" value="${r.amount}">
-                                </div>
-                                <div class="space-y-2">
-                                    <label class="text-[9px] font-black text-zinc-600 uppercase tracking-widest">台費</label>
-                                    <input id="m_fee" type="number" inputmode="numeric" class="font-black text-lg" value="${r.tableFee}">
-                                </div>
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-[9px] font-black text-orange-500 uppercase tracking-widest">備忘錄</label>
-                                <textarea id="m_memo" placeholder="輸入記事..." class="h-28 resize-none text-sm">${r.memo || ''}</textarea>
-                            </div>
-                            <button id="save-btn" onclick="saveData()" class="w-full bg-orange-500 text-black py-4 rounded-3xl font-black text-base shadow-xl active:scale-95 transition-all">儲存戰報</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        init();
     </script>
-</body>
-</html>
 
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+        const { ChevronLeft, ChevronRight, Plus, Trash2, TrendingUp, TrendingDown, X, Cloud, CloudOff } = Lucide;
+
+        const PRESET_STAKES = ["30/10", "50/20", "100/20", "100/30"];
+
+        const App = () => {
+            const today = new Date();
+            const [user, setUser] = useState(null);
+            const [records, setRecords] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [currentMonth, setCurrentMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+            const [selectedDate, setSelectedDate] = useState(today);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+
+            const [stake, setStake] = useState("30/10");
+            const [customStake, setCustomStake] = useState("");
+            const [tableFee, setTableFee] = useState(0);
+            const [isWin, setIsWin] = useState(true);
+            const [amount, setAmount] = useState(0);
+
+            useEffect(() => {
+                const { auth, signInAnonymously, onAuthStateChanged } = window.fb;
+                signInAnonymously(auth).catch(console.error);
+                return onAuthStateChanged(auth, (u) => {
+                    setUser(u);
+                    if(!u) setLoading(false);
+                });
+            }, []);
+
+            useEffect(() => {
+                if (!user) return;
+                const { db, appIdPrefix, collection, onSnapshot, query, orderBy } = window.fb;
+                const recordsCol = collection(db, 'artifacts', appIdPrefix, 'users', user.uid, 'records');
+                const q = query(recordsCol, orderBy("createdAt", "desc"));
+                
+                return onSnapshot(q, (snapshot) => {
+                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setRecords(data);
+                    setLoading(false);
+                });
+            }, [user]);
+
+            const stats = useMemo(() => {
+                return records.reduce((acc, rec) => {
+                    const amt = Number(rec.amount) || 0;
+                    const fee = Number(rec.tableFee) || 0;
+                    if (rec.type === 'win') acc.totalWin += amt;
+                    else acc.totalLoss += amt;
+                    acc.totalFee += fee;
+                    return acc;
+                }, { totalWin: 0, totalLoss: 0, totalFee: 0 });
+            }, [records]);
+
+            const netProfit = stats.totalWin - stats.totalLoss - stats.totalFee;
+            const getLocalDateString = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            const selectedDateStr = getLocalDateString(selectedDate);
+            const dayRecords = records.filter(r => r.date === selectedDateStr);
+
+            const handleAddRecord = async () => {
+                if (!user || amount === "" || (Number(amount) === 0 && Number(tableFee) === 0)) return;
+                const { db, appIdPrefix, collection, addDoc, serverTimestamp } = window.fb;
+                await addDoc(collection(db, 'artifacts', appIdPrefix, 'users', user.uid, 'records'), {
+                    date: selectedDateStr,
+                    stake: stake === "其他" ? customStake : stake,
+                    tableFee: Number(tableFee),
+                    type: isWin ? 'win' : 'loss',
+                    amount: Number(amount),
+                    createdAt: serverTimestamp()
+                });
+                resetForm();
+                setIsModalOpen(false);
+            };
+
+            const handleDeleteRecord = async (id) => {
+                if(!confirm("確定要刪除嗎？")) return;
+                const { db, appIdPrefix, doc, deleteDoc } = window.fb;
+                await deleteDoc(doc(db, 'artifacts', appIdPrefix, 'users', user.uid, 'records', id));
+            };
+
+            const resetForm = () => { setStake("30/10"); setCustomStake(""); setTableFee(0); setIsWin(true); setAmount(0); };
+            const daysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+            const firstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+
+            if (loading) return <div className="h-screen flex items-center justify-center bg-emerald-900 text-white font-black italic">LOADING...</div>;
+
+            return (
+                <div className="h-screen max-h-screen flex flex-col bg-slate-100 text-slate-900 overflow-hidden">
+                    <div className="bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-900 text-white pt-6 pb-6 px-5 shadow-xl shrink-0 rounded-b-[2.5rem]">
+                        <div className="flex justify-between items-end mb-4">
+                            <div>
+                                <p className="text-[10px] opacity-60 font-black flex items-center gap-1">
+                                    {user ? <Cloud size={10} /> : <CloudOff size={10} />} 2026 MAHJONG PRO
+                                </p>
+                                <h1 className="text-2xl font-black italic tracking-tighter">年度戰績</h1>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] opacity-60 font-bold">NET PROFIT</p>
+                                <p className={`text-3xl font-black ${netProfit >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                                    ${netProfit.toLocaleString()}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-2 border border-white/10 text-center">
+                                <span className="text-[9px] opacity-60 font-bold block">贏錢</span>
+                                <span className="font-black text-xs text-emerald-300">+{stats.totalWin.toLocaleString()}</span>
+                            </div>
+                            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-2 border border-white/10 text-center">
+                                <span className="text-[9px] opacity-60 font-bold block">輸錢</span>
+                                <span className="font-black text-xs text-red-300">-{stats.totalLoss.toLocaleString()}</span>
+                            </div>
+                            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-2 border border-white/10 text-center">
+                                <span className="text-[9px] opacity-60 font-bold block">台費</span>
+                                <span className="font-black text-xs text-amber-200">{stats.totalFee.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full p-4 space-y-4">
+                        <div className="bg-white rounded-[2rem] shadow-sm p-4 shrink-0">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="font-black text-slate-700">{currentMonth.getFullYear()} - {currentMonth.getMonth() + 1}月</h2>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))} className="text-slate-400"><ChevronLeft/></button>
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))} className="text-slate-400"><ChevronRight/></button>
+                                </div>
+                            </div>
+                            <div className="calendar-grid">
+                                {['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d} className="text-[10px] text-slate-300 font-black">{d}</div>)}
+                                {Array(firstDayOfMonth(currentMonth)).fill(0).map((_, i) => <div key={`e-${i}`} />)}
+                                {Array(daysInMonth(currentMonth)).fill(0).map((_, i) => {
+                                    const day = i + 1;
+                                    const dateObj = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+                                    const dStr = getLocalDateString(dateObj);
+                                    const isS = selectedDateStr === dStr;
+                                    const dayRecs = records.filter(r => r.date === dStr);
+                                    const dNet = dayRecs.reduce((acc, r) => acc + (r.type === 'win' ? r.amount : -r.amount) - r.tableFee, 0);
+                                    return (
+                                        <button key={day} onClick={() => setSelectedDate(dateObj)} className={`h-11 flex flex-col items-center justify-center rounded-xl text-xs ${isS ? 'bg-emerald-700 text-white' : 'bg-slate-50 text-slate-600'}`}>
+                                            <span className="font-bold">{day}</span>
+                                            {dayRecs.length > 0 && <span className={`text-[7px] ${isS ? 'text-white' : (dNet >= 0 ? 'text-emerald-500' : 'text-red-500')}`}>{dNet >= 0 ? `+${dNet}` : dNet}</span>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="flex-1 flex flex-col min-h-0 bg-white rounded-[2rem] shadow-sm p-5 overflow-hidden">
+                            <div className="flex justify-between items-center mb-4 shrink-0">
+                                <h3 className="font-black text-sm uppercase italic">{selectedDate.getMonth() + 1}.{selectedDate.getDate()} 紀錄</h3>
+                                <button onClick={() => setIsModalOpen(true)} className="bg-emerald-700 text-white px-4 py-2 rounded-xl text-[11px] font-black">+ 新增</button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar">
+                                {dayRecords.map(rec => (
+                                    <div key={rec.id} className="bg-slate-50 p-4 rounded-2xl flex items-center justify-between border border-slate-100">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`p-2 rounded-xl ${rec.type === 'win' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                                                {rec.type === 'win' ? <TrendingUp size={18}/> : <TrendingDown size={18}/>}
+                                            </div>
+                                            <div>
+                                                <div className="font-black text-lg">{rec.type === 'win' ? '+' : '-'}{rec.amount} <span className="text-[10px] text-slate-400 font-normal">{rec.stake}</span></div>
+                                                <div className="text-[10px] text-slate-400">台費: ${rec.tableFee}</div>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => handleDeleteRecord(rec.id)} className="text-slate-300"><Trash2 size={18} /></button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {isModalOpen && (
+                        <div className="fixed inset-0 z-50 flex items-end justify-center">
+                            <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+                            <div className="relative bg-white w-full max-w-md rounded-t-[3rem] p-8 animate-in slide-in-from-bottom duration-300">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-xl font-black italic">NEW RECORD</h2>
+                                    <button onClick={() => setIsModalOpen(false)}><X size={20}/></button>
+                                </div>
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-5 gap-2">
+                                        {[...PRESET_STAKES, "其他"].map(s => (
+                                            <button key={s} onClick={() => setStake(s)} className={`py-2 rounded-lg text-[10px] border-2 font-black ${stake === s ? 'border-emerald-700 bg-emerald-50 text-emerald-800' : 'border-slate-50 text-slate-400'}`}>{s}</button>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button onClick={() => setIsWin(true)} className={`flex-1 py-4 rounded-2xl font-black ${isWin ? 'bg-emerald-50 border-2 border-emerald-600 text-emerald-700' : 'bg-slate-50 text-slate-400'}`}>贏 (+)</button>
+                                        <button onClick={() => setIsWin(false)} className={`flex-1 py-4 rounded-2xl font-black ${!isWin ? 'bg-red-50 border-2 border-red-600 text-red-700' : 'bg-slate-50 text-slate-400'}`}>輸 (-)</button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-slate-50 p-4 rounded-2xl">
+                                            <label className="text-[10px] font-black text-slate-400 block mb-1">金額</label>
+                                            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-transparent text-2xl font-black outline-none" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 rounded-2xl">
+                                            <label className="text-[10px] font-black text-slate-400 block mb-1">台費</label>
+                                            <input type="number" value={tableFee} onChange={(e) => setTableFee(e.target.value)} className="w-full bg-transparent text-2xl font-black outline-none" />
+                                        </div>
+                                    </div>
+                                    <button onClick={handleAddRecord} className="w-full py-4 bg-emerald-700 text-white rounded-2xl font-black shadow-lg">儲存紀錄</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot
