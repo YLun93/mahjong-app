@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" href="mahjong.png">
     <meta name="theme-color" content="#059669">
     
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href='data:application/manifest+json,{"name":"2026 麻將戰報","short_name":"麻將戰報 Pro","start_url":".","display":"standalone","background_color":"#f1f5f9","theme_color":"#059669","icons":[{"src":"mahjong.png","sizes":"192x192","type":"image/png"},{"src":"mahjong.png","sizes":"512x512","type":"image/png"}]}'>
 
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -20,7 +20,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style>
-        /* ... 你原本的所有 CSS 樣式 (保持不變) ... */
         @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;600;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'SF Pro Display', 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #f1f5f9; color: #0f172a; margin: 0; padding: 0; overflow-x: hidden; }
         .calendar-wrapper { display: grid; grid-template-columns: repeat(7, 1fr); width: 100%; background-color: #f1f5f9; gap: 1px; }
@@ -62,10 +61,279 @@
     </script>
 
     <script type="text/babel">
-        /* ... 此處放你原本的所有 React 代碼 (App 元件等) ... */
         const { useState, useEffect, useMemo } = React;
-        // (省略重複的代碼以保持簡潔，請直接使用你原本的內容)
-        // ... 原本的 const App = () => { ... } ...
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [records, setRecords] = useState([]);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [currentMonth, setCurrentMonth] = useState(new Date(2026, 0, 1));
+            const [loading, setLoading] = useState(true);
+            const [formData, setFormData] = useState({
+                date: new Date().toISOString().split('T')[0],
+                stakes: '50/20',
+                customStakes: '',
+                tableFee: '',
+                type: 'win',
+                amount: ''
+            });
+
+            const stakeOptions = ['30/10', '50/20', '100/20'];
+
+            useEffect(() => {
+                const init = setInterval(() => {
+                    if (window.fb) {
+                        clearInterval(init);
+                        const { auth, signInAnonymously, onAuthStateChanged } = window.fb;
+                        signInAnonymously(auth).catch(console.error);
+                        onAuthStateChanged(auth, setUser);
+                    }
+                }, 100);
+                return () => clearInterval(init);
+            }, []);
+
+            useEffect(() => {
+                if (!user || !window.fb) return;
+                const { db, collection, onSnapshot, appId } = window.fb;
+                const q = collection(db, 'artifacts', appId, 'public', 'data', 'records');
+                return onSnapshot(q, (snapshot) => {
+                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setRecords(data.sort((a, b) => new Date(b.date) - new Date(a.date)));
+                    setLoading(false);
+                });
+            }, [user]);
+
+            const stats = useMemo(() => {
+                const calculate = (list) => list.reduce((acc, rec) => {
+                    const amt = Number(rec.amount) || 0;
+                    const fee = Number(rec.tableFee) || 0;
+                    if (rec.type === 'win') acc.won += amt;
+                    else acc.lost += amt;
+                    acc.fees += fee;
+                    return acc;
+                }, { won: 0, lost: 0, fees: 0 });
+
+                const yearly = calculate(records.filter(r => r.date.startsWith('2026')));
+                const targetMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+                const monthly = calculate(records.filter(r => r.date.startsWith(targetMonthStr)));
+                return { yearly, monthly };
+            }, [records, currentMonth]);
+
+            const monthlyNet = stats.monthly.won - stats.monthly.lost - stats.monthly.fees;
+            const yearlyNet = stats.yearly.won - stats.yearly.lost - stats.yearly.fees;
+
+            const handleAddRecord = async () => {
+                if (!user || !formData.amount || !window.fb) return;
+                const { db, setDoc, doc, appId } = window.fb;
+                const id = Date.now().toString();
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id), {
+                        ...formData,
+                        amount: Number(formData.amount),
+                        tableFee: Number(formData.tableFee || 0),
+                        finalStakes: formData.stakes === '其他' ? formData.customStakes : formData.stakes,
+                        createdAt: new Date().toISOString()
+                    });
+                    setIsModalOpen(false);
+                    setFormData({ ...formData, amount: '', tableFee: '', customStakes: '' });
+                } catch (err) { console.error(err); }
+            };
+
+            const deleteRecord = async (id) => {
+                if (!user || !window.fb) return;
+                const { db, deleteDoc, doc, appId } = window.fb;
+                try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id)); } catch (err) {}
+            };
+
+            const renderCalendar = () => {
+                const year = currentMonth.getFullYear();
+                const month = currentMonth.getMonth();
+                const totalDays = new Date(year, month + 1, 0).getDate();
+                const startDay = new Date(year, month, 1).getDay();
+                const todayStr = new Date().toISOString().split('T')[0];
+                const days = [];
+                for (let i = 0; i < startDay; i++) {
+                    days.push(<div key={`empty-${i}`} className="calendar-day bg-slate-50/40"></div>);
+                }
+                for (let d = 1; d <= totalDays; d++) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    const dayRecords = records.filter(r => r.date === dateStr);
+                    const dayProfit = dayRecords.reduce((s, r) => s + (r.type === 'win' ? r.amount : -r.amount) - r.tableFee, 0);
+                    const isToday = dateStr === todayStr;
+                    const dayOfWeek = (startDay + d - 1) % 7;
+                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                    days.push(
+                        <div key={d} onClick={() => { setFormData({ ...formData, date: dateStr }); setIsModalOpen(true); }}
+                            className={`calendar-day cursor-pointer transition-colors active:scale-95 ${isWeekend ? 'bg-slate-50/60' : 'bg-white'} hover:bg-emerald-50`}
+                        >
+                            <span className={`text-[10px] font-black w-6 h-6 flex items-center justify-center mb-1 ${isToday ? 'bg-emerald-600 text-white rounded-lg shadow-lg' : isWeekend ? 'text-slate-400' : 'text-slate-500'}`}>
+                                {d}
+                            </span>
+                            {dayProfit !== 0 && (
+                                <div className={`text-[9px] font-black px-1 py-0.5 rounded leading-none ${dayProfit > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'}`}>
+                                    {dayProfit > 0 ? `+${dayProfit}` : dayProfit}
+                                </div>
+                            )}
+                            {dayRecords.length > 0 && (
+                                <div className="absolute bottom-1.5 w-1 h-1 bg-amber-400 rounded-full"></div>
+                            )}
+                        </div>
+                    );
+                }
+                return days;
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col max-w-md mx-auto bg-slate-100 border-x border-slate-200 safe-bottom overflow-hidden">
+                    <header className="blur-header px-6 py-4 flex items-center border-b border-slate-100 sticky top-0 z-30">
+                        <div className="w-9 h-9 bg-emerald-700 rounded-xl flex items-center justify-center text-white text-lg shadow-lg mr-3 font-bold">🀄</div>
+                        <div className="flex-1">
+                            <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none">2026 麻將戰報</h1>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Personal Tracking Pro</p>
+                        </div>
+                        {loading && <div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>}
+                    </header>
+
+                    <main className="flex-1 p-4 space-y-4 overflow-y-auto">
+                        <section className="bg-white rounded-2xl p-5 card-shadow border border-slate-100 stat-card-gradient">
+                            <div className="flex flex-col space-y-4">
+                                <div className="flex flex-row items-center justify-between">
+                                    <div className="flex-1 min-w-0 pr-2">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">本月結算淨利</p>
+                                        <h2 className={`text-3xl font-black tracking-tighter leading-none truncate ${monthlyNet >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                            ${monthlyNet.toLocaleString()}
+                                        </h2>
+                                    </div>
+                                    <div className="bg-slate-900 px-4 py-2 rounded-xl shadow-lg border border-slate-800 shrink-0 min-w-[100px]">
+                                        <p className="text-[9px] font-black text-slate-500 uppercase mb-0.5 text-center">2026 年度</p>
+                                        <p className={`text-base font-black text-center ${yearlyNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            ${yearlyNet.toLocaleString()}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-100/50 text-center">
+                                        <p className="text-[9px] font-bold text-emerald-700/60 mb-0.5">本月贏錢</p>
+                                        <p className="text-[12px] font-black text-emerald-600 truncate">+{stats.monthly.won}</p>
+                                    </div>
+                                    <div className="bg-rose-50/60 p-2.5 rounded-xl border border-rose-100/50 text-center">
+                                        <p className="text-[9px] font-bold text-rose-700/60 mb-0.5">本月輸錢</p>
+                                        <p className="text-[12px] font-black text-rose-600 truncate">-{stats.monthly.lost}</p>
+                                    </div>
+                                    <div className="bg-amber-50/60 p-2.5 rounded-xl border border-amber-100/50 text-center">
+                                        <p className="text-[9px] font-bold text-amber-700/60 mb-0.5">累計台費</p>
+                                        <p className="text-[12px] font-black text-amber-600 truncate">${stats.monthly.fees}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="bg-white rounded-2xl card-shadow border border-slate-100 overflow-hidden">
+                            <div className="px-5 py-3 flex items-center justify-between border-b border-slate-100">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-emerald-600 font-black text-xs">{currentMonth.getFullYear()}年</span>
+                                    <span className="text-slate-900 font-black text-lg">{currentMonth.getMonth() + 1}月</span>
+                                </div>
+                                <div className="flex bg-slate-100 p-1 rounded-lg">
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-1.5 text-slate-400 active:text-emerald-600 transition-colors">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                    </button>
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-1.5 text-slate-400 active:text-emerald-600 transition-colors">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="calendar-wrapper text-center text-[9px] font-black text-slate-300 py-2 uppercase tracking-widest bg-slate-50/40">
+                                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                            </div>
+                            <div className="calendar-wrapper border-t border-slate-50">
+                                {renderCalendar()}
+                            </div>
+                            <div className="py-2.5 text-center bg-slate-50/50">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic tracking-tighter px-2 block">TAP DATE TO ADD RECORD</span>
+                            </div>
+                        </section>
+
+                        <section className="space-y-3 pb-8">
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
+                                <span className="w-1 h-3 bg-emerald-600 rounded-full"></span> 最近紀錄明細
+                            </h3>
+                            <div className="space-y-2">
+                                {records.slice(0, 8).map(record => (
+                                    <div key={record.id} className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black ${record.type === 'win' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                {record.type === 'win' ? '贏' : '輸'}
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2 leading-none mb-1">
+                                                    <span className="text-[9px] font-black text-slate-400">{record.date.substring(5).replace('-', '/')}</span>
+                                                    <span className="text-[8px] font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-md border border-slate-100">{record.finalStakes}</span>
+                                                </div>
+                                                <p className={`text-base font-black leading-none ${record.type === 'win' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                    {record.type === 'win' ? '+' : '-'}{record.amount.toLocaleString()} 
+                                                    <span className="text-[10px] text-slate-300 ml-2 font-bold italic tracking-tight underline decoration-slate-200">台費 ${record.tableFee}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => deleteRecord(record.id)} className="p-2 text-slate-200 hover:text-rose-500 transition-colors">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    </main>
+
+                    {isModalOpen && (
+                        <div className="fixed inset-0 z-50 flex items-end justify-center">
+                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => setIsModalOpen(false)}></div>
+                            <div className="relative bg-white w-full max-w-md rounded-t-[2.5rem] p-7 pb-12 shadow-2xl modal-animate border-t border-slate-100">
+                                <div className="flex justify-between items-center mb-8">
+                                    <div>
+                                        <h2 className="text-2xl font-black text-slate-900 tracking-tight">紀錄對局</h2>
+                                        <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest mt-1">Winning is a habit 🀄</p>
+                                    </div>
+                                    <button onClick={() => setIsModalOpen(false)} className="bg-slate-100 p-2.5 rounded-full text-slate-400 font-bold hover:bg-rose-50 hover:text-rose-500 transition-colors">✕</button>
+                                </div>
+                                <div className="space-y-6">
+                                    <div className="flex gap-2.5 p-1.5 bg-slate-100 rounded-2xl">
+                                        <button onClick={() => setFormData({...formData, type: 'win'})} className={`flex-1 py-4 rounded-xl font-black text-sm transition-all ${formData.type === 'win' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 opacity-60'}`}>贏錢 🎉</button>
+                                        <button onClick={() => setFormData({...formData, type: 'loss'})} className={`flex-1 py-4 rounded-xl font-black text-sm transition-all ${formData.type === 'loss' ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400 opacity-60'}`}>輸錢 📉</button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">日期</label>
+                                            <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full bg-slate-50 p-4 rounded-xl font-black border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-emerald-500" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">結算金額</label>
+                                            <input type="number" placeholder="0" value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} className="w-full bg-slate-50 p-4 rounded-xl font-black border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-emerald-500 text-lg text-emerald-700" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">底 / 台</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {stakeOptions.map(opt => (
+                                                <button key={opt} onClick={() => setFormData({...formData, stakes: opt})} className={`py-3.5 rounded-xl font-black text-xs border transition-all ${formData.stakes === opt ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>{opt}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">台費金額</label>
+                                        <input type="number" placeholder="0" value={formData.tableFee} onChange={(e) => setFormData({...formData, tableFee: e.target.value})} className="w-full bg-slate-50 p-4 rounded-xl font-black border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-amber-500" />
+                                    </div>
+                                    <button onClick={handleAddRecord} disabled={!formData.amount} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl shadow-emerald-100 active:scale-[0.98] transition-all disabled:opacity-50 mt-2">
+                                        儲存並發財 🀄
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
@@ -73,9 +341,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('✅ Service Worker 註冊成功'))
-                    .catch(err => console.log('❌ Service Worker 註冊失敗', err));
+                navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW registration skipped.'));
             });
         }
     </script>
