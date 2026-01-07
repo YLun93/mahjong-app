@@ -12,7 +12,6 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
@@ -20,13 +19,8 @@
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        
-        /* 動畫效果 */
-        @keyframes slideInUp {
-            from { transform: translateY(100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .animate-in { animation: slideInUp 0.5s ease-out forwards; }
+        @keyframes slideInUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-in { animation: slideInUp 0.4s ease-out forwards; }
     </style>
 </head>
 <body class="bg-[#F1F5F9]">
@@ -37,26 +31,23 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-        // 直接填入你的金鑰
         const firebaseConfig = {
             apiKey: "AIzaSyAUPqdwv4iJ6ebrkdKZNcZpwWBXUg2mQsk",
             authDomain: "mahjong-app-8aacb.firebaseapp.com",
             projectId: "mahjong-app-8aacb",
             storageBucket: "mahjong-app-8aacb.firebasestorage.app",
             messagingSenderId: "344119682978",
-            appId: "1:344119682978:web:b571898505e28f8dc2b4fb",
-            measurementId: "G-410BN7WGZY"
+            appId: "1:344119682978:web:b571898505e28f8dc2b4fb"
         };
 
         const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = 'mahjong-2026-v3';
+        window.fb = { 
+            auth: getAuth(app), 
+            db: getFirestore(app), 
+            appId: 'mahjong-2026-v3',
+            signInAnonymously, onAuthStateChanged, collection, doc, setDoc, deleteDoc, onSnapshot 
+        };
 
-        // 將方法掛載到 window 供 React 使用
-        window.fb = { auth, db, appId, signInAnonymously, onAuthStateChanged, collection, doc, setDoc, deleteDoc, onSnapshot };
-
-        // PWA Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js').catch(() => {});
@@ -66,11 +57,25 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-        const { 
-            Calendar: CalendarIcon, TrendingUp, TrendingDown, 
-            ChevronLeft, ChevronRight, Trash2, X, PieChart, 
-            Target, Award, History, LayoutDashboard, Coins
-        } = lucide;
+
+        // 直接定義圖示 SVG，解決 Lucide Error #130
+        const SvgIcon = ({ d, size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d={d} />
+            </svg>
+        );
+
+        const Icons = {
+            Award: (p) => <SvgIcon {...p} d="M12 15l-2 5L9 9l11 4-5 2zm0 0l4 8 1-11-11 4 6 2z" />,
+            TrendingUp: (p) => <SvgIcon {...p} d="M23 6l-9.5 9.5-5-5L1 18m22-12h-6m6 0v6" />,
+            TrendingDown: (p) => <SvgIcon {...p} d="M23 18l-9.5-9.5-5 5L1 6m22 12h-6m6 0v-6" />,
+            Calendar: (p) => <SvgIcon {...p} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />,
+            ChevronLeft: (p) => <SvgIcon {...p} d="M15 18l-6-6 6-6" />,
+            ChevronRight: (p) => <SvgIcon {...p} d="M9 18l6-6-6-6" />,
+            Trash2: (p) => <SvgIcon {...p} d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />,
+            X: (p) => <SvgIcon {...p} d="M18 6L6 18M6 6l12 12" />,
+            Coins: (p) => <SvgIcon {...p} d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+        };
 
         const App = () => {
             const [user, setUser] = useState(null);
@@ -93,24 +98,18 @@
             useEffect(() => {
                 const { auth, signInAnonymously, onAuthStateChanged } = window.fb;
                 signInAnonymously(auth).catch(console.error);
-                const unsubscribe = onAuthStateChanged(auth, setUser);
-                return () => unsubscribe();
+                return onAuthStateChanged(auth, setUser);
             }, []);
 
             useEffect(() => {
                 if (!user) return;
                 const { db, appId, collection, onSnapshot } = window.fb;
                 const q = collection(db, 'artifacts', appId, 'public', 'data', 'records');
-                
-                const unsubscribe = onSnapshot(q, (snapshot) => {
+                return onSnapshot(q, (snapshot) => {
                     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setRecords(data.sort((a, b) => new Date(b.date) - new Date(a.date)));
                     setLoading(false);
-                }, (err) => {
-                    console.error("Firestore error:", err);
-                    setLoading(false);
-                });
-                return () => unsubscribe();
+                }, () => setLoading(false));
             }, [user]);
 
             const stats = useMemo(() => {
@@ -124,107 +123,74 @@
                 }, { won: 0, lost: 0, fees: 0, winCount: 0, lossCount: 0 });
 
                 const global = calculate(records);
-                const yearlyRecords = records.filter(r => r.date.startsWith('2026'));
-                const yearly = calculate(yearlyRecords);
-                const targetMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-                const monthly = calculate(records.filter(r => r.date.startsWith(targetMonthStr)));
-
+                const yearly = calculate(records.filter(r => r.date.startsWith('2026')));
+                const mStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+                const monthly = calculate(records.filter(r => r.date.startsWith(mStr)));
                 return { global, yearly, monthly };
             }, [records, currentMonth]);
 
-            const winRate = stats.global.winCount + stats.global.lossCount > 0 
-                ? ((stats.global.winCount / (stats.global.winCount + stats.global.lossCount)) * 100).toFixed(1)
-                : 0;
-
-            const monthlyNet = stats.monthly.won - stats.monthly.lost - stats.monthly.fees;
-            const yearlyNet = stats.yearly.won - stats.yearly.lost - stats.yearly.fees;
+            const winRate = (stats.global.winCount + stats.global.lossCount) > 0 
+                ? ((stats.global.winCount / (stats.global.winCount + stats.global.lossCount)) * 100).toFixed(1) : 0;
 
             const handleAddRecord = async () => {
-                if (!user || !formData.amount || !formData.date) return;
+                if (!user || !formData.amount) return;
                 const { db, appId, doc, setDoc } = window.fb;
                 const id = Date.now().toString();
-                try {
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id), {
-                        ...formData,
-                        amount: Number(formData.amount),
-                        tableFee: Number(formData.tableFee || 0),
-                        finalStakes: formData.stakes === '其他' ? formData.customStakes : formData.stakes,
-                        createdAt: new Date().toISOString()
-                    });
-                    setIsModalOpen(false);
-                    setFormData({ ...formData, amount: '', tableFee: '', customStakes: '' });
-                } catch (err) { console.error("Save error:", err); }
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id), {
+                    ...formData,
+                    amount: Number(formData.amount),
+                    tableFee: Number(formData.tableFee || 0),
+                    finalStakes: formData.stakes === '其他' ? formData.customStakes : formData.stakes,
+                    createdAt: new Date().toISOString()
+                });
+                setIsModalOpen(false);
+                setFormData({ ...formData, amount: '', tableFee: '', customStakes: '' });
             };
 
             const deleteRecord = async (id) => {
-                if (!user || !confirm("確定刪除？")) return;
-                const { db, appId, doc, deleteDoc } = window.fb;
-                try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id)); }
-                catch (err) { console.error("Delete error:", err); }
+                if (!confirm("確定刪除？")) return;
+                await window.fb.deleteDoc(window.fb.doc(window.fb.db, 'artifacts', window.fb.appId, 'public', 'data', 'records', id));
             };
 
             const renderCalendar = () => {
                 const year = currentMonth.getFullYear();
                 const month = currentMonth.getMonth();
-                const days = [];
                 const totalDays = new Date(year, month + 1, 0).getDate();
                 const startDay = new Date(year, month, 1).getDay();
-
-                for (let i = 0; i < startDay; i++) {
-                    days.push(<div key={`e-${i}`} className="h-20 bg-slate-50/50 border-b border-r border-slate-100"></div>);
-                }
-
+                const cells = [];
+                for (let i = 0; i < startDay; i++) cells.push(<div key={`e-${i}`} className="h-16 border-b border-r border-slate-50 bg-slate-50/30" />);
                 for (let d = 1; d <= totalDays; d++) {
-                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                    const dayRecords = records.filter(r => r.date === dateStr);
-                    const dayProfit = dayRecords.reduce((s, r) => s + (r.type === 'win' ? r.amount : -r.amount) - r.tableFee, 0);
-
-                    days.push(
-                        <div key={d} onClick={() => { setFormData({ ...formData, date: dateStr }); setIsModalOpen(true); }}
-                            className="h-20 border-b border-r border-slate-100 p-1 flex flex-col items-center cursor-pointer hover:bg-emerald-50 transition-all group"
-                        >
-                            <span className={`text-[10px] font-bold mb-1 ${dateStr === new Date().toISOString().split('T')[0] ? 'bg-emerald-600 text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-slate-400'}`}>
-                                {d}
-                            </span>
-                            {dayProfit !== 0 && (
-                                <div className={`text-[11px] font-black leading-tight text-center ${dayProfit > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                                    {dayProfit > 0 ? `+${dayProfit}` : dayProfit}
-                                </div>
-                            )}
-                            <div className="mt-auto flex gap-0.5">
-                                {dayRecords.map((_, i) => (<div key={i} className="w-1 h-1 bg-amber-400 rounded-full"></div>))}
-                            </div>
+                    const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    const dRecs = records.filter(r => r.date === dStr);
+                    const dProfit = dRecs.reduce((s, r) => s + (r.type === 'win' ? r.amount : -r.amount) - r.tableFee, 0);
+                    cells.push(
+                        <div key={d} onClick={() => { setFormData({ ...formData, date: dStr }); setIsModalOpen(true); }} className="h-16 border-b border-r border-slate-100 p-1 flex flex-col items-center cursor-pointer hover:bg-emerald-50 transition-all">
+                            <span className={`text-[10px] font-bold ${dStr === new Date().toISOString().split('T')[0] ? 'bg-emerald-600 text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-slate-400'}`}>{d}</span>
+                            {dProfit !== 0 && <span className={`text-[9px] font-black ${dProfit > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{dProfit > 0 ? `+${dProfit}` : dProfit}</span>}
                         </div>
                     );
                 }
-                return days;
+                return cells;
             };
+
+            if (loading) return <div className="h-screen flex items-center justify-center font-black text-emerald-800 italic">載入戰報中...</div>;
 
             return (
                 <div className="min-h-screen pb-12">
-                    <header className="bg-white border-b border-slate-200 sticky top-0 z-40 px-6 py-4 shadow-sm text-left">
+                    <header className="bg-white border-b p-4 sticky top-0 z-40 shadow-sm">
                         <div className="max-w-2xl mx-auto flex items-center gap-3">
-                            <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-                                <Award size={24} />
-                            </div>
-                            <div>
-                                <h1 className="text-lg font-black tracking-tighter text-slate-900 leading-tight">2026 麻將戰報</h1>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mahjong Tracker Pro</p>
-                            </div>
+                            <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg"><Icons.Award size={24} /></div>
+                            <div><h1 className="text-lg font-black tracking-tighter">2026 麻將戰報</h1><p className="text-[10px] font-bold text-slate-400 uppercase">Pro Tracker</p></div>
                         </div>
                     </header>
 
                     <main className="max-w-2xl mx-auto p-4 space-y-4">
                         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-2 bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 relative overflow-hidden group">
+                            <div className="md:col-span-2 bg-white rounded-[2rem] p-6 shadow-sm border relative overflow-hidden group">
                                 <div className="relative z-10">
-                                    <div className="flex justify-between mb-4">
-                                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                            <LayoutDashboard size={14} /> {currentMonth.getMonth() + 1}月收益
-                                        </span>
-                                    </div>
-                                    <h2 className={`text-4xl font-black mb-2 ${monthlyNet >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                                        ${monthlyNet.toLocaleString()}
+                                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{currentMonth.getMonth()+1}月收益</span>
+                                    <h2 className={`text-4xl font-black my-2 ${stats.monthly.won - stats.monthly.lost - stats.monthly.fees >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                        ${(stats.monthly.won - stats.monthly.lost - stats.monthly.fees).toLocaleString()}
                                     </h2>
                                     <div className="flex gap-4 text-[11px] font-bold text-slate-500">
                                         <span>贏: <span className="text-emerald-500">+{stats.monthly.won}</span></span>
@@ -232,124 +198,65 @@
                                         <span>台費: <span className="text-amber-500">{stats.monthly.fees}</span></span>
                                     </div>
                                 </div>
-                                <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:scale-110 transition-transform">
-                                    <TrendingUp size={120} />
-                                </div>
+                                <Icons.TrendingUp size={100} className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:scale-110 transition-transform" />
                             </div>
-
                             <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-xl flex flex-col justify-between">
-                                <div>
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
-                                        <Coins size={14} className="text-amber-400" /> 2026 年收益
-                                    </span>
-                                    <div className={`text-2xl font-black ${yearlyNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        ${yearlyNet.toLocaleString()}
-                                    </div>
-                                </div>
-                                <div className="mt-4 pt-4 border-t border-slate-800 text-[10px] font-bold text-slate-500 uppercase flex justify-between">
-                                    <span>年度累計</span>
-                                    <span className="text-amber-400">發發發</span>
-                                </div>
+                                <div><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">2026 年盈虧</span><div className="text-2xl font-black text-emerald-400">${(stats.yearly.won - stats.yearly.lost - stats.yearly.fees).toLocaleString()}</div></div>
+                                <div className="mt-4 pt-4 border-t border-slate-800 text-[10px] font-bold text-slate-500 uppercase flex justify-between"><span>年度統計</span><span className="text-amber-400">發發發</span></div>
                             </div>
                         </section>
 
-                        <section className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-                            <div className="flex justify-between mb-3">
-                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Target size={14} /> 戰力分析</span>
-                                <span className="text-xs font-black text-emerald-600">{winRate}% 勝率</span>
-                            </div>
-                            <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                                <div className="bg-emerald-500 h-full transition-all duration-1000" style={{ width: `${winRate}%` }}></div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4 mt-4">
-                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">總對局數</p>
-                                    <p className="text-sm font-black text-slate-700">{stats.global.winCount + stats.global.lossCount} 場</p>
-                                </div>
-                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">總計台費</p>
-                                    <p className="text-sm font-black text-amber-600">${stats.global.fees.toLocaleString()}</p>
-                                </div>
-                            </div>
+                        <section className="bg-white rounded-[2rem] p-6 shadow-sm border">
+                            <div className="flex justify-between mb-3"><span className="text-xs font-black text-slate-400 uppercase tracking-widest">勝率分析</span><span className="text-xs font-black text-emerald-600">{winRate}%</span></div>
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div className="bg-emerald-500 h-full transition-all" style={{ width: `${winRate}%` }}></div></div>
                         </section>
 
-                        <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-                            <div className="bg-slate-50/50 px-6 py-4 flex items-center justify-between border-b border-slate-100">
-                                <h3 className="font-black text-slate-800 flex items-center gap-2 text-sm">
-                                    <CalendarIcon size={18} className="text-emerald-600" />
-                                    {currentMonth.getFullYear()}年 {currentMonth.getMonth() + 1}月
-                                </h3>
-                                <div className="flex bg-white rounded-xl shadow-sm border border-slate-200 p-1">
-                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-1.5 hover:bg-slate-50 rounded-lg"><ChevronLeft size={18}/></button>
-                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-1.5 hover:bg-slate-50 rounded-lg"><ChevronRight size={18}/></button>
+                        <section className="bg-white rounded-[2rem] shadow-sm border overflow-hidden">
+                            <div className="bg-slate-50/50 p-4 flex items-center justify-between border-b">
+                                <h3 className="font-black text-sm flex items-center gap-2"><Icons.Calendar size={18} className="text-emerald-600" />{currentMonth.getFullYear()}年 {currentMonth.getMonth()+1}月</h3>
+                                <div className="flex gap-1">
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth()-1, 1))} className="p-1 hover:bg-slate-100 rounded-lg"><Icons.ChevronLeft/></button>
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth()+1, 1))} className="p-1 hover:bg-slate-100 rounded-lg"><Icons.ChevronRight/></button>
                                 </div>
-                            </div>
-                            <div className="grid grid-cols-7 text-center text-[10px] font-black text-slate-300 py-3 uppercase tracking-tighter border-b border-slate-50">
-                                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
                             </div>
                             <div className="grid grid-cols-7">{renderCalendar()}</div>
                         </section>
 
-                        <section className="space-y-4">
-                            <div className="flex justify-between items-center px-2">
-                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><History size={14} /> 最近對局</h3>
-                            </div>
-                            <div className="space-y-3">
-                                {records.slice(0, 8).map(record => (
-                                    <div key={record.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group hover:border-emerald-200">
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${record.type === 'win' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
-                                                {record.type === 'win' ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
-                                            </div>
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-0.5">
-                                                    <span className="text-[10px] font-black text-slate-400">{record.date}</span>
-                                                    <span className="bg-slate-100 text-slate-600 text-[9px] px-2 py-0.5 rounded-full font-black uppercase">{record.finalStakes}</span>
-                                                </div>
-                                                <div className="flex items-baseline gap-2 leading-none">
-                                                    <span className={`text-xl font-black ${record.type === 'win' ? 'text-emerald-600' : 'text-rose-500'}`}>
-                                                        {record.type === 'win' ? '+' : '-'}{record.amount.toLocaleString()}
-                                                    </span>
-                                                    <span className="text-[10px] text-slate-400 font-bold">台費: {record.tableFee}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button onClick={() => deleteRecord(record.id)} className="text-slate-200 hover:text-rose-500 p-2"><Trash2 size={18} /></button>
+                        <section className="space-y-3">
+                            <h3 className="text-xs font-black text-slate-400 uppercase px-2">最近對局</h3>
+                            {records.slice(0, 5).map(r => (
+                                <div key={r.id} className="bg-white p-4 rounded-2xl shadow-sm border flex items-center justify-between group">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${r.type === 'win' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>{r.type === 'win' ? <Icons.Win size={20}/> : <Icons.Loss size={20}/>}</div>
+                                        <div><div className="text-[10px] font-black text-slate-400">{r.date} <span className="ml-2 uppercase">{r.finalStakes}</span></div><div className={`text-lg font-black ${r.type === 'win' ? 'text-emerald-600' : 'text-rose-500'}`}>{r.type==='win'?'+':'-'}{r.amount.toLocaleString()} <span className="text-[10px] text-slate-300 font-bold ml-1">台費: {r.tableFee}</span></div></div>
                                     </div>
-                                ))}
-                            </div>
+                                    <button onClick={() => deleteRecord(r.id)} className="text-slate-200 hover:text-rose-500 p-2"><Icons.Trash2 size={18}/></button>
+                                </div>
+                            ))}
                         </section>
                     </main>
 
                     {isModalOpen && (
-                        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-                            <div className="relative bg-white w-full max-w-md rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden animate-in">
-                                <div className="p-8">
-                                    <div className="flex justify-between items-center mb-8">
-                                        <h2 className="text-2xl font-black text-slate-900">紀錄對局</h2>
-                                        <button onClick={() => setIsModalOpen(false)} className="bg-slate-100 p-2 rounded-full"><X size={20} /></button>
+                        <div className="fixed inset-0 z-50 flex items-end justify-center">
+                            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+                            <div className="relative bg-white w-full max-w-md rounded-t-[2.5rem] p-8 animate-in">
+                                <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-black">紀錄對局</h2><button onClick={() => setIsModalOpen(false)} className="text-slate-400"><Icons.X /></button></div>
+                                <div className="space-y-5">
+                                    <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full bg-slate-50 rounded-2xl p-4 font-bold border-none outline-none" />
+                                    <div className="flex bg-slate-100 p-1 rounded-2xl">
+                                        <button onClick={() => setFormData({...formData, type: 'win'})} className={`flex-1 py-3 rounded-xl font-black transition-all ${formData.type === 'win' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>贏錢</button>
+                                        <button onClick={() => setFormData({...formData, type: 'loss'})} className={`flex-1 py-3 rounded-xl font-black transition-all ${formData.type === 'loss' ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400'}`}>輸錢</button>
                                     </div>
-                                    <div className="space-y-6">
-                                        <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full bg-slate-50 rounded-2xl px-5 py-4 font-bold border-none" />
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="flex bg-slate-100 p-1 rounded-2xl">
-                                                <button onClick={() => setFormData({...formData, type: 'win'})} className={`flex-1 py-3 rounded-xl font-black text-sm ${formData.type === 'win' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>贏錢</button>
-                                                <button onClick={() => setFormData({...formData, type: 'loss'})} className={`flex-1 py-3 rounded-xl font-black text-sm ${formData.type === 'loss' ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400'}`}>輸錢</button>
-                                            </div>
-                                            <input type="number" placeholder="台費" value={formData.tableFee} onChange={(e) => setFormData({...formData, tableFee: e.target.value})} className="w-full bg-slate-50 rounded-2xl px-5 py-3.5 font-bold border-none" />
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {stakeOptions.map(opt => (
-                                                <button key={opt} onClick={() => setFormData({...formData, stakes: opt})} className={`py-3 rounded-xl font-black text-xs border ${formData.stakes === opt ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>{opt}</button>
-                                            ))}
-                                        </div>
-                                        <div className="relative">
-                                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 font-black text-2xl">$</span>
-                                            <input type="number" placeholder="結算金額" value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} className="w-full bg-slate-50 rounded-2xl pl-12 pr-6 py-6 text-3xl font-black text-slate-900 border-none" />
-                                        </div>
-                                        <button onClick={handleAddRecord} disabled={!formData.amount} className="w-full bg-slate-900 hover:bg-emerald-600 disabled:bg-slate-200 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl">儲存並發財</button>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {stakeOptions.map(opt => (
+                                            <button key={opt} onClick={() => setFormData({...formData, stakes: opt})} className={`py-3 rounded-xl font-black text-xs border ${formData.stakes === opt ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-400 border-slate-200'}`}>{opt}</button>
+                                        ))}
                                     </div>
+                                    <div className="relative">
+                                        <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 font-black text-2xl">$</span>
+                                        <input type="number" placeholder="金額" value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} className="w-full bg-slate-50 rounded-2xl pl-12 pr-6 py-6 text-3xl font-black outline-none border-none" />
+                                    </div>
+                                    <button onClick={handleAddRecord} className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl active:scale-95 transition-transform">儲存紀錄</button>
                                 </div>
                             </div>
                         </div>
@@ -357,9 +264,7 @@
                 </div>
             );
         };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
 </body>
 </html>
