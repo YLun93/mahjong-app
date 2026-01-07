@@ -15,15 +15,31 @@
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .custom-scrollbar::-webkit-scrollbar { width: 3px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #F8FAFC; }
+        
+        /* 自定義滾動條 */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
+
+        /* 卡片懸浮效果 */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 月曆格線優化 */
+        .calendar-border { border-color: #F1F5F9; }
+        
+        /* 動畫 */
+        @keyframes popUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-pop { animation: popUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        @keyframes slideInUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .animate-in { animation: slideInUp 0.4s ease-out forwards; }
     </style>
 </head>
-<body class="bg-[#F1F5F9]">
+<body class="text-slate-800">
     <div id="root"></div>
 
     <script type="module">
@@ -47,53 +63,34 @@
             appId: 'mahjong-2026-v3',
             signInAnonymously, onAuthStateChanged, collection, doc, setDoc, deleteDoc, onSnapshot 
         };
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(() => {});
-            });
-        }
     </script>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // 直接定義圖示 SVG，解決 Lucide Error #130
-        const SvgIcon = ({ d, size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-                <path d={d} />
-            </svg>
-        );
-
         const Icons = {
-            Award: (p) => <SvgIcon {...p} d="M12 15l-2 5L9 9l11 4-5 2zm0 0l4 8 1-11-11 4 6 2z" />,
-            TrendingUp: (p) => <SvgIcon {...p} d="M23 6l-9.5 9.5-5-5L1 18m22-12h-6m6 0v6" />,
-            TrendingDown: (p) => <SvgIcon {...p} d="M23 18l-9.5-9.5-5 5L1 6m22 12h-6m6 0v-6" />,
-            Calendar: (p) => <SvgIcon {...p} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />,
-            ChevronLeft: (p) => <SvgIcon {...p} d="M15 18l-6-6 6-6" />,
-            ChevronRight: (p) => <SvgIcon {...p} d="M9 18l6-6-6-6" />,
-            Trash2: (p) => <SvgIcon {...p} d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />,
-            X: (p) => <SvgIcon {...p} d="M18 6L6 18M6 6l12 12" />,
-            Coins: (p) => <SvgIcon {...p} d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+            Award: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>,
+            TrendingUp: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
+            ChevronLeft: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M15 18l-6-6 6-6"/></svg>,
+            ChevronRight: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M9 18l6-6-6-6"/></svg>,
+            Plus: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+            Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
         };
 
         const App = () => {
             const [user, setUser] = useState(null);
             const [records, setRecords] = useState([]);
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            const [currentMonth, setCurrentMonth] = useState(new Date(2026, 0, 1));
             const [loading, setLoading] = useState(true);
+            const [currentMonth, setCurrentMonth] = useState(new Date(2026, 0, 1));
+            const [isModalOpen, setIsModalOpen] = useState(false);
             
             const [formData, setFormData] = useState({
                 date: new Date().toISOString().split('T')[0],
                 stakes: '50/20',
-                customStakes: '',
-                tableFee: '',
                 type: 'win',
-                amount: ''
+                amount: '',
+                tableFee: ''
             });
-
-            const stakeOptions = ['30/10', '50/20', '100/20', '100/30', '其他'];
 
             useEffect(() => {
                 const { auth, signInAnonymously, onAuthStateChanged } = window.fb;
@@ -107,156 +104,170 @@
                 const q = collection(db, 'artifacts', appId, 'public', 'data', 'records');
                 return onSnapshot(q, (snapshot) => {
                     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setRecords(data.sort((a, b) => new Date(b.date) - new Date(a.date)));
+                    setRecords(data);
                     setLoading(false);
                 }, () => setLoading(false));
             }, [user]);
 
             const stats = useMemo(() => {
-                const calculate = (list) => list.reduce((acc, rec) => {
-                    const amt = Number(rec.amount) || 0;
-                    const fee = Number(rec.tableFee) || 0;
-                    if (rec.type === 'win') { acc.won += amt; acc.winCount += 1; }
-                    else { acc.lost += amt; acc.lossCount += 1; }
-                    acc.fees += fee;
+                const calc = (list) => list.reduce((acc, r) => {
+                    const amt = Number(r.amount) || 0;
+                    const fee = Number(r.tableFee) || 0;
+                    if (r.type === 'win') { acc.w += amt; acc.wc += 1; }
+                    else { acc.l += amt; acc.lc += 1; }
+                    acc.f += fee;
                     return acc;
-                }, { won: 0, lost: 0, fees: 0, winCount: 0, lossCount: 0 });
+                }, { w: 0, l: 0, f: 0, wc: 0, lc: 0 });
 
-                const global = calculate(records);
-                const yearly = calculate(records.filter(r => r.date.startsWith('2026')));
+                const yearly = calc(records.filter(r => r.date.startsWith('2026')));
                 const mStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-                const monthly = calculate(records.filter(r => r.date.startsWith(mStr)));
-                return { global, yearly, monthly };
+                const monthly = calc(records.filter(r => r.date.startsWith(mStr)));
+                return { yearly, monthly, global: calc(records) };
             }, [records, currentMonth]);
 
-            const winRate = (stats.global.winCount + stats.global.lossCount) > 0 
-                ? ((stats.global.winCount / (stats.global.winCount + stats.global.lossCount)) * 100).toFixed(1) : 0;
+            const monthlyNet = stats.monthly.w - stats.monthly.l - stats.monthly.f;
+            const winRate = (stats.global.wc + stats.global.lc) > 0 ? ((stats.global.wc / (stats.global.wc + stats.global.lc)) * 100).toFixed(0) : 0;
 
-            const handleAddRecord = async () => {
+            const handleAdd = async () => {
                 if (!user || !formData.amount) return;
-                const { db, appId, doc, setDoc } = window.fb;
                 const id = Date.now().toString();
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id), {
+                await window.fb.setDoc(window.fb.doc(window.fb.db, 'artifacts', window.fb.appId, 'public', 'data', 'records', id), {
                     ...formData,
                     amount: Number(formData.amount),
                     tableFee: Number(formData.tableFee || 0),
-                    finalStakes: formData.stakes === '其他' ? formData.customStakes : formData.stakes,
+                    finalStakes: formData.stakes,
                     createdAt: new Date().toISOString()
                 });
                 setIsModalOpen(false);
-                setFormData({ ...formData, amount: '', tableFee: '', customStakes: '' });
-            };
-
-            const deleteRecord = async (id) => {
-                if (!confirm("確定刪除？")) return;
-                await window.fb.deleteDoc(window.fb.doc(window.fb.db, 'artifacts', window.fb.appId, 'public', 'data', 'records', id));
+                setFormData({ ...formData, amount: '', tableFee: '' });
             };
 
             const renderCalendar = () => {
                 const year = currentMonth.getFullYear();
                 const month = currentMonth.getMonth();
-                const totalDays = new Date(year, month + 1, 0).getDate();
-                const startDay = new Date(year, month, 1).getDay();
+                const total = new Date(year, month + 1, 0).getDate();
+                const start = new Date(year, month, 1).getDay();
                 const cells = [];
-                for (let i = 0; i < startDay; i++) cells.push(<div key={`e-${i}`} className="h-16 border-b border-r border-slate-50 bg-slate-50/30" />);
-                for (let d = 1; d <= totalDays; d++) {
-                    const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                    const dRecs = records.filter(r => r.date === dStr);
-                    const dProfit = dRecs.reduce((s, r) => s + (r.type === 'win' ? r.amount : -r.amount) - r.tableFee, 0);
+                for (let i = 0; i < start; i++) cells.push(<div key={`e-${i}`} className="h-16 border-b border-r calendar-border" />);
+                for (let d = 1; d <= total; d++) {
+                    const dStr = `${year}-${String(month+1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    const hasRec = records.some(r => r.date === dStr);
                     cells.push(
-                        <div key={d} onClick={() => { setFormData({ ...formData, date: dStr }); setIsModalOpen(true); }} className="h-16 border-b border-r border-slate-100 p-1 flex flex-col items-center cursor-pointer hover:bg-emerald-50 transition-all">
-                            <span className={`text-[10px] font-bold ${dStr === new Date().toISOString().split('T')[0] ? 'bg-emerald-600 text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-slate-400'}`}>{d}</span>
-                            {dProfit !== 0 && <span className={`text-[9px] font-black ${dProfit > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{dProfit > 0 ? `+${dProfit}` : dProfit}</span>}
+                        <div key={d} onClick={() => { setFormData({ ...formData, date: dStr }); setIsModalOpen(true); }} 
+                             className="h-16 border-b border-r calendar-border flex flex-col items-center pt-2 cursor-pointer hover:bg-emerald-50 relative group">
+                            <span className={`text-[11px] font-bold ${dStr === new Date().toISOString().split('T')[0] ? 'bg-emerald-600 text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-slate-400'}`}>{d}</span>
+                            {hasRec && <div className="mt-1 w-1 h-1 bg-amber-400 rounded-full group-hover:scale-150 transition-transform"></div>}
                         </div>
                     );
                 }
                 return cells;
             };
 
-            if (loading) return <div className="h-screen flex items-center justify-center font-black text-emerald-800 italic">載入戰報中...</div>;
+            if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50 font-black text-emerald-700 italic">LOADING...</div>;
 
             return (
-                <div className="min-h-screen pb-12">
-                    <header className="bg-white border-b p-4 sticky top-0 z-40 shadow-sm">
-                        <div className="max-w-2xl mx-auto flex items-center gap-3">
-                            <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg"><Icons.Award size={24} /></div>
-                            <div><h1 className="text-lg font-black tracking-tighter">2026 麻將戰報</h1><p className="text-[10px] font-bold text-slate-400 uppercase">Pro Tracker</p></div>
+                <div className="max-w-md mx-auto min-h-screen pb-24 relative">
+                    {/* Header */}
+                    <header className="px-6 py-6 flex items-center gap-4 sticky top-0 bg-slate-50/80 backdrop-blur-md z-30">
+                        <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-200"><Icons.Award /></div>
+                        <div>
+                            <h1 className="text-xl font-black tracking-tighter">2026 麻將戰報</h1>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pro Tracker</p>
                         </div>
                     </header>
 
-                    <main className="max-w-2xl mx-auto p-4 space-y-4">
-                        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-2 bg-white rounded-[2rem] p-6 shadow-sm border relative overflow-hidden group">
-                                <div className="relative z-10">
-                                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{currentMonth.getMonth()+1}月收益</span>
-                                    <h2 className={`text-4xl font-black my-2 ${stats.monthly.won - stats.monthly.lost - stats.monthly.fees >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                                        ${(stats.monthly.won - stats.monthly.lost - stats.monthly.fees).toLocaleString()}
-                                    </h2>
-                                    <div className="flex gap-4 text-[11px] font-bold text-slate-500">
-                                        <span>贏: <span className="text-emerald-500">+{stats.monthly.won}</span></span>
-                                        <span>輸: <span className="text-rose-400">-{stats.monthly.lost}</span></span>
-                                        <span>台費: <span className="text-amber-500">{stats.monthly.fees}</span></span>
-                                    </div>
+                    <div className="px-5 space-y-6">
+                        {/* 當月收益卡片 */}
+                        <section className="bg-white rounded-[2.5rem] p-8 glass-card relative overflow-hidden group animate-pop">
+                            <div className="relative z-10">
+                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{currentMonth.getMonth()+1}月收益</span>
+                                <h2 className={`text-5xl font-black my-3 tracking-tighter ${monthlyNet >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                    ${monthlyNet.toLocaleString()}
+                                </h2>
+                                <div className="flex gap-4 text-xs font-bold text-slate-400">
+                                    <span>贏: <span className="text-emerald-500">+{stats.monthly.w}</span></span>
+                                    <span>輸: <span className="text-rose-400">-{stats.monthly.l}</span></span>
+                                    <span>台費: <span className="text-amber-500">{stats.monthly.f}</span></span>
                                 </div>
-                                <Icons.TrendingUp size={100} className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:scale-110 transition-transform" />
                             </div>
-                            <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-xl flex flex-col justify-between">
-                                <div><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">2026 年盈虧</span><div className="text-2xl font-black text-emerald-400">${(stats.yearly.won - stats.yearly.lost - stats.yearly.fees).toLocaleString()}</div></div>
-                                <div className="mt-4 pt-4 border-t border-slate-800 text-[10px] font-bold text-slate-500 uppercase flex justify-between"><span>年度統計</span><span className="text-amber-400">發發發</span></div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 opacity-50 group-hover:scale-110 transition-transform duration-700"></div>
+                        </section>
+
+                        {/* 年度收益卡片 */}
+                        <section className="bg-[#101827] rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden animate-pop" style={{ animationDelay: '0.1s' }}>
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest block mb-2">2026 年度盈虧</span>
+                                    <div className="text-3xl font-black text-white tracking-tighter">${(stats.yearly.w - stats.yearly.l - stats.yearly.f).toLocaleString()}</div>
+                                </div>
+                                <div className="text-[10px] font-black text-amber-400 bg-amber-400/10 px-3 py-1 rounded-full uppercase">年度統計</div>
+                            </div>
+                            <div className="flex justify-between items-center pt-4 border-t border-slate-800">
+                                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Cumulative Result</div>
+                                <div className="text-xs font-black text-amber-400 italic">發發發</div>
                             </div>
                         </section>
 
-                        <section className="bg-white rounded-[2rem] p-6 shadow-sm border">
-                            <div className="flex justify-between mb-3"><span className="text-xs font-black text-slate-400 uppercase tracking-widest">勝率分析</span><span className="text-xs font-black text-emerald-600">{winRate}%</span></div>
-                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div className="bg-emerald-500 h-full transition-all" style={{ width: `${winRate}%` }}></div></div>
+                        {/* 勝率分析 */}
+                        <section className="bg-white rounded-[2rem] p-6 glass-card flex items-center justify-between animate-pop" style={{ animationDelay: '0.2s' }}>
+                            <div>
+                                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">勝率分析</h3>
+                                <div className="w-40 h-1.5 bg-slate-100 rounded-full overflow-hidden mt-3">
+                                    <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${winRate}%` }}></div>
+                                </div>
+                            </div>
+                            <div className="text-2xl font-black text-emerald-600">{winRate}%</div>
                         </section>
 
-                        <section className="bg-white rounded-[2rem] shadow-sm border overflow-hidden">
-                            <div className="bg-slate-50/50 p-4 flex items-center justify-between border-b">
-                                <h3 className="font-black text-sm flex items-center gap-2"><Icons.Calendar size={18} className="text-emerald-600" />{currentMonth.getFullYear()}年 {currentMonth.getMonth()+1}月</h3>
-                                <div className="flex gap-1">
-                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth()-1, 1))} className="p-1 hover:bg-slate-100 rounded-lg"><Icons.ChevronLeft/></button>
-                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth()+1, 1))} className="p-1 hover:bg-slate-100 rounded-lg"><Icons.ChevronRight/></button>
+                        {/* 月曆 */}
+                        <section className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden animate-pop" style={{ animationDelay: '0.3s' }}>
+                            <div className="bg-slate-50/50 p-6 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                                    <h3 className="font-black text-sm tracking-tight">{currentMonth.getFullYear()}年 {currentMonth.getMonth()+1}月</h3>
                                 </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth()-1, 1))} className="p-1.5 bg-white rounded-xl shadow-sm border border-slate-100 hover:bg-slate-50"><Icons.ChevronLeft/></button>
+                                    <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth()+1, 1))} className="p-1.5 bg-white rounded-xl shadow-sm border border-slate-100 hover:bg-slate-50"><Icons.ChevronRight/></button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-7 text-[10px] font-black text-slate-300 uppercase tracking-tighter text-center py-2 border-b border-slate-50">
+                                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
                             </div>
                             <div className="grid grid-cols-7">{renderCalendar()}</div>
                         </section>
+                    </div>
 
-                        <section className="space-y-3">
-                            <h3 className="text-xs font-black text-slate-400 uppercase px-2">最近對局</h3>
-                            {records.slice(0, 5).map(r => (
-                                <div key={r.id} className="bg-white p-4 rounded-2xl shadow-sm border flex items-center justify-between group">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${r.type === 'win' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>{r.type === 'win' ? <Icons.Win size={20}/> : <Icons.Loss size={20}/>}</div>
-                                        <div><div className="text-[10px] font-black text-slate-400">{r.date} <span className="ml-2 uppercase">{r.finalStakes}</span></div><div className={`text-lg font-black ${r.type === 'win' ? 'text-emerald-600' : 'text-rose-500'}`}>{r.type==='win'?'+':'-'}{r.amount.toLocaleString()} <span className="text-[10px] text-slate-300 font-bold ml-1">台費: {r.tableFee}</span></div></div>
-                                    </div>
-                                    <button onClick={() => deleteRecord(r.id)} className="text-slate-200 hover:text-rose-500 p-2"><Icons.Trash2 size={18}/></button>
-                                </div>
-                            ))}
-                        </section>
-                    </main>
+                    {/* 懸浮按鈕 (FAB) */}
+                    <button onClick={() => setIsModalOpen(true)} 
+                            className="fixed bottom-8 right-8 w-16 h-16 bg-emerald-600 text-white rounded-2xl shadow-2xl shadow-emerald-300 flex items-center justify-center active:scale-90 transition-transform z-40">
+                        <Icons.Plus />
+                    </button>
 
+                    {/* 新增紀錄彈窗 */}
                     {isModalOpen && (
                         <div className="fixed inset-0 z-50 flex items-end justify-center">
-                            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-                            <div className="relative bg-white w-full max-w-md rounded-t-[2.5rem] p-8 animate-in">
-                                <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-black">紀錄對局</h2><button onClick={() => setIsModalOpen(false)} className="text-slate-400"><Icons.X /></button></div>
-                                <div className="space-y-5">
-                                    <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full bg-slate-50 rounded-2xl p-4 font-bold border-none outline-none" />
+                            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setIsModalOpen(false)} />
+                            <div className="relative bg-white w-full max-w-md rounded-t-[3rem] p-8 animate-pop">
+                                <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-8"></div>
+                                <div className="flex justify-between items-center mb-8">
+                                    <h2 className="text-2xl font-black tracking-tight text-slate-900">紀錄這場勝負</h2>
+                                    <div className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">{formData.date}</div>
+                                </div>
+                                <div className="space-y-6">
                                     <div className="flex bg-slate-100 p-1 rounded-2xl">
-                                        <button onClick={() => setFormData({...formData, type: 'win'})} className={`flex-1 py-3 rounded-xl font-black transition-all ${formData.type === 'win' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>贏錢</button>
-                                        <button onClick={() => setFormData({...formData, type: 'loss'})} className={`flex-1 py-3 rounded-xl font-black transition-all ${formData.type === 'loss' ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400'}`}>輸錢</button>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {stakeOptions.map(opt => (
-                                            <button key={opt} onClick={() => setFormData({...formData, stakes: opt})} className={`py-3 rounded-xl font-black text-xs border ${formData.stakes === opt ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-400 border-slate-200'}`}>{opt}</button>
-                                        ))}
+                                        <button onClick={() => setFormData({...formData, type: 'win'})} className={`flex-1 py-4 rounded-xl font-black transition-all ${formData.type === 'win' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>贏錢 (+)</button>
+                                        <button onClick={() => setFormData({...formData, type: 'loss'})} className={`flex-1 py-4 rounded-xl font-black transition-all ${formData.type === 'loss' ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400'}`}>輸錢 (-)</button>
                                     </div>
                                     <div className="relative">
-                                        <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 font-black text-2xl">$</span>
-                                        <input type="number" placeholder="金額" value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} className="w-full bg-slate-50 rounded-2xl pl-12 pr-6 py-6 text-3xl font-black outline-none border-none" />
+                                        <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 font-black text-3xl">$</span>
+                                        <input type="number" placeholder="0" value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} className="w-full bg-slate-50 rounded-3xl pl-12 pr-6 py-8 text-4xl font-black outline-none border-none placeholder:text-slate-200" />
                                     </div>
-                                    <button onClick={handleAddRecord} className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl active:scale-95 transition-transform">儲存紀錄</button>
+                                    <div className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center">
+                                        <span className="text-xs font-black text-slate-400">台費支出</span>
+                                        <input type="number" placeholder="0" value={formData.tableFee} onChange={(e) => setFormData({...formData, tableFee: e.target.value})} className="bg-transparent text-right font-black text-lg w-24 outline-none" />
+                                    </div>
+                                    <button onClick={handleAdd} className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-lg shadow-xl active:scale-95 transition-transform uppercase tracking-widest">儲存紀錄</button>
                                 </div>
                             </div>
                         </div>
